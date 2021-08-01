@@ -11,30 +11,38 @@ namespace StudyRoslyn
 {
     public class Program
     {
+        private static void Test()
+        {
+            var files = Directory.GetFiles("./input", "*.cs", SearchOption.AllDirectories);
+            foreach (var file in files)
+            {
+                Console.WriteLine(file);
+            }
+        }
+
         static void Main(string[] args)
         {
-            // 読み込むソースファイル群
-            string[] filenames = { "../../../Sample.cs" };
-            // 構文木を格納するリスト
-            var syntaxTrees = new List<SyntaxTree>();
-            foreach (var filename in filenames)
-            {
-                // ソースコードをテキストとして読み込む
-                var code = File.ReadAllText(filename);
-                // 構文木の生成
-                var syntaxTree = CSharpSyntaxTree.ParseText(code, CSharpParseOptions.Default, filename);
-                // 構文木をリストへ格納
-                syntaxTrees.Add(syntaxTree);
-            }
+            //Test();
 
-            // LINQ
-            // var syntaxTrees = (from filename in filenames
-            //            let code = File.ReadAllText(filename)
-            //            let syntaxTree = CSharpSyntaxTree.ParseText(code, CSharpParseOptions.Default, filename)
-            //            select syntaxTree).ToArray();
+            // inputフォルダのファイルを全て読み込む
+            string[] filenames = Directory.GetFiles("./input", "*.cs", SearchOption.AllDirectories);
 
+            // それぞれのソースコードに対して構文木を生成する
+            var syntaxTrees = filenames.Select(
+                filename => CSharpSyntaxTree.ParseText(
+                File.ReadAllText(filename), // ソースコードをテキストとして読み込む
+                CSharpParseOptions.Default,
+                filename)
+            ).ToArray();
+
+            // 解析用コンパイラで参照するdll
+            // ぶっちゃけよく分かってない。おまじない。
+            // 多分、コンパイルエラーが出たらtypeof(クラス名).Assembly.Locationみたいな感じでdll参照増やしていく感じだと思う。
             var references = new[]{
                 // microlib.dll
+                // intは内部的にはSystem.Int32を利用している。
+                // メタリファレンスは何も指定しないとSystem.Int32等がインポートされていない。
+                // コンパイルエラーを回避するため、objectクラスが属するアセンブリをメタリファレンスに指定しておく。
                 MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
                 // System.dll
                 MetadataReference.CreateFromFile(typeof(ObservableCollection<>).Assembly.Location),
@@ -44,9 +52,10 @@ namespace StudyRoslyn
                 // MetadataReference.CreateFromFile("library path"),
             };
 
-            // 解析用コンパイラの生成
+            // 構文木と参照dllから解析用コンパイラを生成する
             var compilation = CSharpCompilation.Create("sample", syntaxTrees, references);
 
+            // 各ソースコードの構文木について解析
             foreach (var tree in syntaxTrees)
             {
                 // コンパイラからセマンティックモデルの取得
@@ -64,11 +73,11 @@ namespace StudyRoslyn
                 foreach (var syntax in classSyntaxArray)
                 {
                     var symbol = semanticModel.GetDeclaredSymbol(syntax);
-                    Console.WriteLine("{0} {1}", symbol.DeclaredAccessibility, symbol);
-                    Console.WriteLine(" Namespace: {0}", symbol.ContainingSymbol);
-                    Console.WriteLine(" {0}: {1}", nameof(symbol.IsAbstract), symbol.IsAbstract);
-                    Console.WriteLine(" {0}: {1}", nameof(symbol.IsStatic), symbol.IsStatic);
-
+                    Console.WriteLine("{0} {1}", symbol.DeclaredAccessibility, symbol);                 // Internal StudyRoslyn.Sample
+                    Console.WriteLine(" Namespace: {0}", symbol.ContainingSymbol);                      // Namespace: StudyRoslyn
+                    Console.WriteLine(" {0}: {1}", nameof(symbol.IsAbstract), symbol.IsAbstract);       // IsAbstract: False
+                    Console.WriteLine(" {0}: {1}", nameof(symbol.IsStatic), symbol.IsStatic);           // IsStatic: False
+                    
                     // 継承しているクラスやインタフェースがあるかどうか
                     if (syntax.BaseList != null)
                     {
@@ -85,15 +94,17 @@ namespace StudyRoslyn
                     }
                 }
 
+                // メソッド
+                Console.WriteLine("--- Methods ---");
                 // コンストラクタはConstructorDeclarationSyntax
                 var methodSyntaxArray = nodes.OfType<MethodDeclarationSyntax>();
                 foreach (var syntax in methodSyntaxArray)
                 {
                     var symbol = semanticModel.GetDeclaredSymbol(syntax);
-                    Console.WriteLine("{0} {1}", symbol.DeclaredAccessibility, symbol);
-                    Console.WriteLine(" Namespace: {0}", symbol.ContainingSymbol);
-                    Console.WriteLine(" {0}: {1}", nameof(symbol.IsStatic), symbol.IsStatic);
-                    Console.WriteLine(" IsExtensionMethod: {0}", symbol.IsExtensionMethod);
+                    Console.WriteLine("{0} {1}", symbol.DeclaredAccessibility, symbol);                 // Public StudyRoslyn.Sample.Method()
+                    Console.WriteLine(" Namespace: {0}", symbol.ContainingSymbol);                      // Namespace: StudyRoslyn.Sample
+                    Console.WriteLine(" {0}: {1}", nameof(symbol.IsStatic), symbol.IsStatic);           // IsStatic: False
+                    Console.WriteLine(" IsExtensionMethod: {0}", symbol.IsExtensionMethod);             // IsExtensionMethod: False
 
                     // 引数の型と名前をひとまとめに
                     var parameters = from param in symbol.Parameters select new { Name = param.Name, ParamType = param.ToString() };
@@ -101,13 +112,16 @@ namespace StudyRoslyn
                     // 引数の出力
                     Console.WriteLine(" Parameters:");
                     foreach (var elem in parameters)
-                        Console.WriteLine("  {0} {1}", elem.ParamType, elem.Name);
+                        Console.WriteLine("  {0} {1}", elem.ParamType, elem.Name);                      //
 
                     // 戻り値の出力
-                    Console.WriteLine(" ReturnType: {0}", symbol.ReturnType);
+                    Console.WriteLine(" ReturnType: {0}", symbol.ReturnType);                           // ReturnType: void
                 }
 
+                // プロパティ
+                Console.WriteLine("--- Properties ---");
                 var propertySyntaxArray = nodes.OfType<PropertyDeclarationSyntax>();
+                // インタフェースとクラスの両方分出る。
                 foreach (var syntax in propertySyntaxArray)
                 {
                     var symbol = semanticModel.GetDeclaredSymbol(syntax);
@@ -116,42 +130,29 @@ namespace StudyRoslyn
                     Console.WriteLine(" {0}: {1}", nameof(symbol.IsStatic), symbol.IsStatic);
 
                     // アクセサの取得
-                    var accessors = from accessor in syntax.AccessorList.Accessors
-                                    select new
-                                    {
-                                        Name = accessor.Keyword.ToString(),
-                                        Access = accessor.Modifiers.Count > 0 ?
-                                            semanticModel.GetDeclaredSymbol(accessor).DeclaredAccessibility :
-                                            Accessibility.Public
-                                    };
-
-                    // クエリ式使わない場合
-                    //var accessors = new List<(string Name, Accessibility Access)>();
-                    //foreach (var accessor in syntax.AccessorList.Accessors)
-                    //{
-                    //    var accessibility = Accessibility.Public;
-                    //    var keyword = accessor.Keyword.ToString();
-                    //    if (accessor.Modifiers.Count > 0)
-                    //    {
-                    //        var msym = semanticModel.GetDeclaredSymbol(accessor);
-                    //        accessibility = msym.DeclaredAccessibility;
-                    //    }
-                    //    accessors.Add((keyword, accessibility));
-                    //}
+                    var accessors = syntax.AccessorList.Accessors.Select(
+                        accessor => new {
+                            Name = accessor.Keyword.ToString(),
+                            Access = accessor.Modifiers.Count > 0 ?
+                            semanticModel.GetDeclaredSymbol(accessor).DeclaredAccessibility :
+                            Accessibility.Public
+                    });
 
                     // アクセサの出力
                     Console.WriteLine(" Accessors:");
                     foreach (var accessor in accessors)
-                        Console.WriteLine("  {0} {1}", accessor.Access, accessor.Name);
+                        Console.WriteLine("  {0} {1}", accessor.Access, accessor.Name); //  Public get, Private set
 
                     // 戻り値に関するSymbolInfoを取得
                     var symbolInfo = semanticModel.GetSymbolInfo(syntax.Type);
                     // SymbolInfoからシンボルを取得
                     var sym = symbolInfo.Symbol;
                     // 戻り値の出力
-                    Console.WriteLine(" Type: {0}", sym.ToDisplayString());
+                    Console.WriteLine(" Type: {0}", sym.ToDisplayString());             // Type: int
                 }
 
+                // フィールド
+                Console.WriteLine("--- Fields ---");
                 var fieldSyntaxArray = nodes.OfType<FieldDeclarationSyntax>();
                 foreach (var syntax in fieldSyntaxArray)
                 {
@@ -165,7 +166,7 @@ namespace StudyRoslyn
                     Console.WriteLine(" Type: {0}", sym.ToDisplayString());
 
                 }
-
+                Console.WriteLine("--- --- --- --- --- --- --- --- --- --- --- ---");
             }
         }
     }

@@ -9,4 +9,13 @@
     <PackageReference Include="Microsoft.CodeAnalysis" Version="3.10.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Update="input\Sample2.cs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Compile>
+    <Compile Update="input\Sample.cs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Compile>
+  </ItemGroup>
+
 </Project>

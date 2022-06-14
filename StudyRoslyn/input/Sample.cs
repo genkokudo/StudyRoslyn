@@ -6,19 +6,23 @@ namespace StudyRoslyn
 {
     public interface ISample
     {
-        int Value { get; }
-        string Name { get; }
+        int Value { get; set; }
+        string Name { get; set; }
     }
 
     class Sample
     {
-        public int Value { get; private set; }
-        public string Name { get; private set; }
+        public int Value { get; set; }
+        public string Name { get; set; }
 
-        public virtual void Method()
+        public Sample()
         {
             Value = 1;
             Name = "なまえ";
+        }
+
+        public virtual void Method()
+        {
             Console.WriteLine(Value);
             Console.WriteLine(Name);
         }

@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace StudyRoslyn
 {
@@ -162,31 +163,13 @@ namespace StudyRoslyn
                     var sym = symbolInfo.Symbol;
                     // 型の出力
                     Console.WriteLine(" Type: {0}", sym.ToDisplayString());
-
                 }
                 Console.WriteLine($"--- --- {tree.FilePath}の解析終わり --- ---");
             }
 
             Console.WriteLine($"--- --- ★★★★各フィールドと値を取得する実験★★★★ --- ---");
-            Console.WriteLine($"--- --- Reflectionを使う。 --- ---");
             var testSample = new Sample();
-
-            var type = testSample.GetType();
-            foreach (var field in type.GetFields())
-            {
-                // 基本的にプロパティを使うので、フィールドは普段使わない。
-                Console.WriteLine(string.Format($"フィールド名: {field.Name}, 値: {field.GetValue(type)}"));
-            }
-            foreach (var properties in type.GetProperties())
-            {
-                var property = type.GetProperty(properties.Name);     // まずクラス情報からプロパティを取得する
-                var value = property.GetValue(testSample);            // インスタンスから実際の値を取得する
-
-                Console.WriteLine(string.Format($"プロパティ名: {properties.Name}, 値: {value}"));
-            }
-            // Assertを作ってみよう
-            // ListではCountを、ArrayではLengthを取得してみよう。is 演算子でできる？
-            //bool isBase = (obj is Base);
+            Console.WriteLine(Assert.MakeAssert(testSample, nameof(testSample)));
 
 
         }

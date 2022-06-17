@@ -4,7 +4,7 @@ using System.Text;
 
 namespace StudyRoslyn
 {
-    public class Assert
+    public class AssertMaker
     {
         // Roslynではなく、Reflectionを使ってオブジェクトの中身を見る。
         // Roslynはどっちかっつーとコードを見るので、オブジェクトの値を取ったりはしないのかな？
@@ -13,63 +13,56 @@ namespace StudyRoslyn
         public static string MakeAssert(object obj, string name)
         {
             var sb = new StringBuilder();
-            var type = obj.GetType();
-
-            // フィールドの取得とAsser生成
-            foreach (var field in type.GetFields())
-            {
-                // 基本的にプロパティを使うので、フィールドは普段使わない。
-                var fld = type.GetField(field.Name);        // まずクラス情報からフィールド情報を取得する
-                sb.AppendLine(GetAssertStr(name, fld.Name, fld.GetValue(obj)));
-            }
-
-            // プロパティの取得とAsser生成
-            foreach (var property in type.GetProperties())
-            {
-                var prop = type.GetProperty(property.Name); // まずクラス情報からプロパティ情報を取得する
-                sb.AppendLine(GetAssertStr(name, prop.Name, prop.GetValue(obj)));
-            }
-
+            Append(sb, obj, name);
             return sb.ToString();
         }
 
-        // インスタンス名、フィールドまたはプロパティ名、値
-        static string GetAssertStr(string name, string propName, object obj)
+        /// <summary>
+        /// 再帰処理
+        /// </summary>
+        /// <param name="sb">生成中のコードのバッファ</param>
+        /// <param name="obj">Assert対象のオブジェクトで、クラスもプリミティブも対応</param>
+        /// <param name="name">オブジェクト名</param>
+        private static void Append(StringBuilder sb, object obj, string name)
         {
-            // ListではCountを、ArrayではLengthを取得してみよう。is 演算子でできる？
-            //bool isBase = (obj is Base);
+            var type = obj.GetType();
+
+            // まず、送られてきたobjectが何なのか？
+            // obj自体がListやDictionaryの場合は？
+            // →その場合だけ特別扱いしたい。
+            // objがPrimitiveの場合もあるよね？
             if (obj == null)
             {
-                Console.WriteLine("ぬるぽ");
-                return $"{name}.{propName}.Is({obj});";
+                sb.AppendLine($"{name}.IsNull();");
             }
-            var type = obj.GetType();
-            if (type.IsPrimitive)
+            else if (type.IsPrimitive)
             {
                 // プリミティブ
+                sb.AppendLine($"{name}.Is({obj});");
             }
             else if (type.IsValueType)
             {
                 if (type.IsEnum)
                 {
                     // enumはここ
+                    sb.AppendLine($"{name}.Is({obj});");
                 }
                 else
                 {
                     // struct
+                    AppendNormalClassAssert(sb, obj, name);
                 }
             }
             else
             {
                 // クラス
-                // Stringはこっち
                 Console.WriteLine($"クラス:{type.Name}");
 
-                // 配列はここ
                 if (type.IsArray)
                 {
-                    Console.WriteLine("配列発見");
-                    return $"{name}.{propName}.Is({obj});";
+                    // 配列はここ
+                    sb.AppendLine($"{name}.Length.Is();");
+                    // TODO：objectがaaaa[]のような配列だと分かっている場合、どうやってaaaa[]として扱うのか？
                 }
 
                 if (type.IsGenericType)
@@ -77,7 +70,8 @@ namespace StudyRoslyn
                     var genericDef = type.GetGenericTypeDefinition();
                     if (genericDef == typeof(List<>))
                     {
-                        Console.WriteLine("リストだー！");
+                        // リストはここ
+                        sb.AppendLine($"{name}.Count.Is();");
                     }
                     else
                     {
@@ -85,26 +79,53 @@ namespace StudyRoslyn
                     }
                 }
 
+                if (type.Name.ToLower() == "string")
+                {
+                    // stringとか、よく扱うクラスは特別扱いしたい。
+                    sb.AppendLine($"{name}.Is(\"{obj}\");");
+                }
 
-                // ListとかAtray以外はGetAssertStrを再帰で呼んだらいいんじゃない？
+                // それ以外の一般クラスはここ。
+                AppendNormalClassAssert(sb, obj, name);
 
-                return $"{name}.{propName}.Is({obj});";
+
             }
-            Console.WriteLine($"クラスではない:{type.Name}");
-            return $"{name}.{propName}.Is({obj});";
         }
 
+        // 多分、structもこの処理になる
+        private static void AppendNormalClassAssert(StringBuilder sb, object obj, string name)
+        {
+            // TODO:例えば、DateTimeだとMinValueもDateTimeなのでMinValue.MinValue.MinValue...のような循環が出来てしまう。
+            // 深度制限をかけるか、親と同じフィールド名は指せないようにしなければならない。
+            // また、DateTimeは頻繁に使うので特別に処理を設ける必要がある。
 
+            var type = obj.GetType();
 
+            // フィールドの取得とAssert生成
+            foreach (var field in type.GetFields())
+            {
+                // 基本的にプロパティを使うので、フィールドは普段使わない。
+                var fld = type.GetField(field.Name);        // まずクラス情報からフィールド情報を取得する
+                Append(sb, fld.GetValue(obj), $"{name}.{fld.Name}");
+            }
 
+            // プロパティの取得とAssert生成
+            foreach (var property in type.GetProperties())
+            {
+                var prop = type.GetProperty(property.Name); // まずクラス情報からプロパティ情報を取得する
+                Append(sb, prop.GetValue(obj), $"{name}.{prop.Name}");
+            }
+        }
 
-        // xUnitで使う時は、テストクラスのコンストラクタでITestOutputHelperを作って出力させて使う感じ。
-
-        //private readonly ITestOutputHelper _output;
-        //public IndexTests(CommonTestFixture fixture, ITestOutputHelper output)
-        //{
-        //    _fixture = fixture;
-        //    _output = output;
-        //}
     }
+
+    // xUnitで使う時は、テストクラスのコンストラクタでITestOutputHelperを作って出力させて使う感じ。
+
+    //private readonly ITestOutputHelper _output;
+    //public IndexTests(CommonTestFixture fixture, ITestOutputHelper output)
+    //{
+    //    _fixture = fixture;
+    //    _output = output;
+    //}
+
 }

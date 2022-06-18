@@ -1,15 +1,23 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 
 namespace StudyRoslyn
 {
+    // TODO:Dictionaryが未対応。必要になったら実装しましょう。
     public class AssertMaker
     {
         // Roslynではなく、Reflectionを使ってオブジェクトの中身を見る。
         // Roslynはどっちかっつーとコードを見るので、オブジェクトの値を取ったりはしないのかな？
 
-        // オブジェクトに対して、Assertを作成する
+        /// <summary>
+        /// オブジェクトに対して、Assertを作成する 
+        /// 循環参照による無限ループを防止するため、同時に2回以上同じフィールド名を含むAssertを生成できない。
+        /// </summary>
+        /// <param name="obj"></param>
+        /// <param name="name"></param>
+        /// <returns></returns>
         public static string MakeAssert(object obj, string name)
         {
             var sb = new StringBuilder();
@@ -25,8 +33,6 @@ namespace StudyRoslyn
         /// <param name="name">オブジェクト名</param>
         private static void Append(StringBuilder sb, object obj, string name)
         {
-            var type = obj.GetType();
-
             // まず、送られてきたobjectが何なのか？
             // obj自体がListやDictionaryの場合は？
             // →その場合だけ特別扱いしたい。
@@ -34,11 +40,22 @@ namespace StudyRoslyn
             if (obj == null)
             {
                 sb.AppendLine($"{name}.IsNull();");
+                return;
             }
-            else if (type.IsPrimitive)
+
+            var type = obj.GetType();
+            if (type.IsPrimitive)
             {
                 // プリミティブ
-                sb.AppendLine($"{name}.Is({obj});");
+                if (type.Name == "Boolean")
+                {
+                    // "True"とか"False"とかなので小文字にする
+                    sb.AppendLine($"{name}.Is({obj.ToString().ToLower()});");
+                }
+                else
+                {
+                    sb.AppendLine($"{name}.Is({obj});");
+                }
             }
             else if (type.IsValueType)
             {
@@ -50,7 +67,15 @@ namespace StudyRoslyn
                 else
                 {
                     // struct
-                    AppendNormalClassAssert(sb, obj, name);
+                    if (type.Name.ToLower() == "datetime")
+                    {
+                        // stringとか、よく扱うクラスは特別扱いしたい。
+                        sb.AppendLine($"{name}.ToString().Is(\"{obj}\");");
+                    }
+                    else
+                    {
+                        AppendNormalClassAssert(sb, obj, name);
+                    }
                 }
             }
             else
@@ -61,33 +86,51 @@ namespace StudyRoslyn
                 if (type.IsArray)
                 {
                     // 配列はここ
-                    sb.AppendLine($"{name}.Length.Is();");
-                    // TODO：objectがaaaa[]のような配列だと分かっている場合、どうやってaaaa[]として扱うのか？
-                }
+                    // type.Name;               // "SampleSub[]"
+                    // type.GetElementType();   // "SampleSub"
 
-                if (type.IsGenericType)
+                    // Lengthを取得
+                    var prop = type.GetProperty("Length");
+                    var length = (int)prop.GetValue(obj);
+                    sb.AppendLine($"{name}.Length.Is({length});");
+
+                    var objArray = (object[])obj;
+                    foreach (var item in objArray)
+                    {
+                        Append(sb, item, $"{name}");
+                    }
+                }
+                else if (type.IsGenericType)
                 {
                     var genericDef = type.GetGenericTypeDefinition();
                     if (genericDef == typeof(List<>))
                     {
                         // リストはここ
-                        sb.AppendLine($"{name}.Count.Is();");
+                        var prop = type.GetProperty("Count");
+                        var count = prop.GetValue(obj);
+                        sb.AppendLine($"{name}.Count.Is({count});");
+
+                        var objList = (IEnumerable)obj;
+                        foreach (var item in objList)
+                        {
+                            Append(sb, item, $"{name}");
+                        }
                     }
                     else
                     {
                         // それ以外のジェネリック。辞書とか。
                     }
                 }
-
-                if (type.Name.ToLower() == "string")
+                else if (type.Name.ToLower() == "string")
                 {
                     // stringとか、よく扱うクラスは特別扱いしたい。
                     sb.AppendLine($"{name}.Is(\"{obj}\");");
                 }
-
-                // それ以外の一般クラスはここ。
-                AppendNormalClassAssert(sb, obj, name);
-
+                else
+                {
+                    // それ以外の一般クラスはここ。
+                    AppendNormalClassAssert(sb, obj, name);
+                }
 
             }
         }
@@ -95,10 +138,6 @@ namespace StudyRoslyn
         // 多分、structもこの処理になる
         private static void AppendNormalClassAssert(StringBuilder sb, object obj, string name)
         {
-            // TODO:例えば、DateTimeだとMinValueもDateTimeなのでMinValue.MinValue.MinValue...のような循環が出来てしまう。
-            // 深度制限をかけるか、親と同じフィールド名は指せないようにしなければならない。
-            // また、DateTimeは頻繁に使うので特別に処理を設ける必要がある。
-
             var type = obj.GetType();
 
             // フィールドの取得とAssert生成
@@ -106,15 +145,46 @@ namespace StudyRoslyn
             {
                 // 基本的にプロパティを使うので、フィールドは普段使わない。
                 var fld = type.GetField(field.Name);        // まずクラス情報からフィールド情報を取得する
-                Append(sb, fld.GetValue(obj), $"{name}.{fld.Name}");
+                if (CheckName(name, fld.Name))              // 循環参照チェックをする
+                {
+                    Append(sb, fld.GetValue(obj), $"{name}.{fld.Name}");
+                }
             }
 
             // プロパティの取得とAssert生成
             foreach (var property in type.GetProperties())
             {
                 var prop = type.GetProperty(property.Name); // まずクラス情報からプロパティ情報を取得する
-                Append(sb, prop.GetValue(obj), $"{name}.{prop.Name}");
+                if (CheckName(name, prop.Name))
+                {
+                    Append(sb, prop.GetValue(obj), $"{name}.{prop.Name}");
+                }
             }
+
+        }
+
+        /// <summary>
+        /// 循環参照対策
+        /// 名前をチェックして、続けて生成しても良いか判定する
+        /// </summary>
+        /// <param name="name">ピリオドで繋いだ今までのパンくず形式の名前</param>
+        /// <param name="propName">生成対象名</param>
+        /// <returns></returns>
+        private static bool CheckName(string name, string propName)
+        {
+            // 例えば、DateTimeだとMinValueもDateTimeなのでMinValue.MinValue.MinValue...のような循環が出来てしまう。
+            // MinValue.MaxValue.MinValue...のパターンもある。
+
+            //var splitedName = name.Split('.');
+            //var lastName = splitedName[splitedName.Length - 1];
+            //return lastName != propName;
+
+            // ↑の方法じゃダメだったので単純にこっちで。
+            // 今までの名前と同名のフィールドは生成対象にしない。
+            return !name.Contains(propName);
+
+            // 他に考えられる方法だと、同じ型が登場したら拒否するとかかなあ？DateTypeの中のDateTypeは対象外にするとか。
+            //→それだと、多対多の構造でループすると思う。
         }
 
     }

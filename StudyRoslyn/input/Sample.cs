@@ -31,7 +31,7 @@ namespace StudyRoslyn
             Name = "なまえ";
             IsActive = true;
             SubData = new SampleSub();
-            PrimitiveList = new List<string>();
+            PrimitiveList = new List<string> { "aaaa", "bbbb", "cccc", "dddd"};
 
             ObjectList = new List<SampleSub>
             {

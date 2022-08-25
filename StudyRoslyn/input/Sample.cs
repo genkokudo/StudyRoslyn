@@ -10,10 +10,25 @@ namespace StudyRoslyn
         string Name { get; set; }
     }
 
+    /// <summary>
+    /// クラスコメント
+    /// クラスコメント2行目
+    /// </summary>
     public class Sample
     {
+        /// <summary>
+        /// 通し番号
+        /// 2行目
+        /// </summary>
         public long Id { get; set; }
+        /// <summary>
+        /// 値
+        /// </summary>
         public int Value { get; set; }
+        /// <summary>
+        /// 現在の時刻
+        /// 日本標準時
+        /// </summary>
         public DateTime Now { get; set; }
         public string Name { get; set; }
         public bool IsActive { get; set; }
@@ -22,6 +37,18 @@ namespace StudyRoslyn
         public List<string> PrimitiveList { get; set; }
         public List<SampleSub> ObjectList { get; set; }
         public SampleSub[] ObjectArray { get; set; }
+
+        // 1行コメント
+        // 2行目
+
+        /* 複数行コメント */
+
+        /* 
+         * 複数行コメント1
+         * 複数行コメント2
+         * "なんかダブルクォーテーションとか入ってるコメント"
+         * 複数行コメント3
+         */
 
         public Sample()
         {
@@ -52,6 +79,31 @@ namespace StudyRoslyn
             Console.WriteLine(Value);
             Console.WriteLine(Name);
         }
+
+        /// <summary>
+        /// メソッドコメント
+        /// 2行目
+        /// </summary>
+        /// <param name="str">引数の説明1</param>
+        /// <param name="str2">引数の説明2</param>
+        /// <returns>戻り値の説明</returns>
+        public string TestMethod(string str, string str2)
+        {
+            Console.WriteLine(str);
+            Console.WriteLine(Value);
+            Console.WriteLine(Name);
+            return str;
+        }
+
+        /// <summary>
+        /// ただのメソッドコメント
+        /// </summary>
+        public virtual void TestMethod2()
+        {
+            Console.WriteLine(Value);
+            Console.WriteLine(Name);
+        }
+
     }
 
     public class SampleSub

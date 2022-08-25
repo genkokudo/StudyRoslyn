@@ -1,6 +1,8 @@
 ﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
+using StudyRoslyn.Summary;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -12,9 +14,44 @@ namespace StudyRoslyn
 {
     public class Program
     {
+        /// <summary>
+        /// ソース内のメソッドコメントを取得する
+        /// </summary>
+        /// <param name="syntaxTrees"></param>
+        static void GetMethodComments(SyntaxTree[] syntaxTrees)
+        {
+            foreach (var syntaxTree in syntaxTrees)
+            {
+                // MethodDocumentCommentWalker.Visit()を呼び出せば、
+                // MethodDocumentCommentWalker.DocumentCommentsに収集した結果が格納される
+                var walker = new MethodDocumentCommentWalker(syntaxTree);
+                walker.Visit(syntaxTree.GetRoot());
+
+                foreach (var docComment in walker.DocumentComments)
+                {
+                    MethodDeclarationSyntax method = docComment.Key;
+                    DocumentComment comment = docComment.Value;
+
+                    // ここで取得したメソッドコメントを整形してファイルに出力したりする
+                    Console.WriteLine("#" + method.Identifier);
+                    Console.WriteLine("##Summary");
+                    Console.WriteLine(comment.Summary);
+                    Console.WriteLine("##parameters");
+                    foreach (var param in comment.Params)
+                    {
+                        Console.WriteLine(param.Name + "\t" + param.Comment);
+                    }
+                    Console.WriteLine("##returns");
+                    Console.WriteLine(comment.Returns);
+                    Console.WriteLine();
+                }
+            }
+        }
+
 
         static void Main(string[] args)
         {
+
             // inputフォルダのファイルを全て読み込む
             string[] filenames = Directory.GetFiles("./input", "*.cs", SearchOption.AllDirectories);
 
@@ -25,6 +62,8 @@ namespace StudyRoslyn
                 CSharpParseOptions.Default,
                 filename)
             ).ToArray();
+
+            GetMethodComments(syntaxTrees);
 
             // 解析用コンパイラで参照するdll
             // ぶっちゃけよく分かってない。おまじない。

@@ -2,6 +2,7 @@
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using StudyRoslyn.input;
 using StudyRoslyn.Summary;
 using System;
 using System.Collections.Generic;
@@ -48,12 +49,37 @@ namespace StudyRoslyn
             }
         }
 
+        /// <summary>
+        /// ソースコードからサービス名か、インタフェース名を取得
+        /// </summary>
+        /// <returns></returns>
+        public static string GetServiceName(string path)
+        {
+            return "";
+        }
 
         static void Main(string[] args)
         {
-
             // inputフォルダのファイルを全て読み込む
             string[] filenames = Directory.GetFiles("./input", "*.cs", SearchOption.AllDirectories);
+
+            // ソースコードからサービス名か、インタフェース名を取得してみる
+            foreach (var filename in filenames)
+            {
+                var name = Path.GetFileName(filename);
+                Console.WriteLine(name);
+                switch (name)
+                {
+                    case "ISampleService.cs":
+                        Console.WriteLine($"ソースからサービス名を取得:{name}\n{GetServiceName(name)}\n");
+                        break;
+                    case "SampleService.cs":
+                        Console.WriteLine($"ソースからサービス名を取得:{name}\n{GetServiceName(name)}\n");
+                        break;
+                    default:
+                        break;
+                }
+            }
 
             // それぞれのソースコードに対して構文木を生成する
             var syntaxTrees = filenames.Select(

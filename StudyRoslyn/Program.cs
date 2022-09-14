@@ -66,50 +66,41 @@ namespace StudyRoslyn
         
         /// <summary>
         /// ソースコードのサービスまたはインタフェースから、サービス名を取得
+        /// 末尾にServiceが無いものは除外。
+        /// インタフェースの場合は先頭の"I"を除外する。
         /// </summary>
         /// <param name="path"></param>
-        /// <returns>サービス名</returns>
-        public static string GetServiceName(string path)
+        /// <returns>検出したサービス名全て</returns>
+        public static List<string> GetServiceNames(string path)
         {
+            var result = new List<string>();
+
             // 1ファイルごとに解析しているので、別ファイルに定義したものは拾えない事に注意
             var syntaxTree = CSharpSyntaxTree.ParseText(File.ReadAllText(path));
             var compilation = CSharpCompilation.Create("sample", new SyntaxTree[] { syntaxTree }, references);
             var semanticModel = compilation.GetSemanticModel(syntaxTree);
+            var nodes = syntaxTree.GetRoot().DescendantNodes();
 
-            // TODO:ここから、regexとか使ってサービスクラス名だけ拾ってリストにすること。
-            
-            //// ノード群からクラスに関する構文情報群を取得
-            //// クラスはClassDeclarationSyntax
-            //// インタフェースはInterfaceDeclarationSyntax
-            //Console.WriteLine($"--- クラスの解析をします ---");
-            //var nodes = syntaxTree.GetRoot().DescendantNodes();
-            //var classSyntaxArray = nodes.OfType<ClassDeclarationSyntax>();
-            //foreach (var syntax in classSyntaxArray)
-            //{
-            //    var symbol = semanticModel.GetDeclaredSymbol(syntax);
-            //    Console.WriteLine($"アクセス修飾子: {symbol.DeclaredAccessibility} {symbol}");
-            //    Console.WriteLine($" クラス名（フル）: {symbol}");                 // StudyRoslyn.Sample
-            //    Console.WriteLine($" クラス名: {symbol.Name}");                 // Sample
-            //    Console.WriteLine($" 名前空間: {symbol.ContainingSymbol}");
-            //    Console.WriteLine($" Abstractか: {symbol.IsAbstract}");
-            //    Console.WriteLine($" Staticか: {symbol.IsStatic}");
+            // ノード群からクラスに関する構文情報群を取得
+            var classSyntaxArray = nodes.OfType<ClassDeclarationSyntax>();
+            foreach (var syntax in classSyntaxArray)
+            {
+                var symbol = semanticModel.GetDeclaredSymbol(syntax);
+                result.Add($"{symbol.Name}");
+            }
 
-            //    // 継承しているクラスやインタフェースがあるかどうか
-            //    if (syntax.BaseList != null)
-            //    {
-            //        // 継承しているクラスなどのシンボルを取得
-            //        var inheritanceList = from baseSyntax in syntax.BaseList.Types
-            //                              let symbolInfo = semanticModel.GetSymbolInfo(baseSyntax.Type)
-            //                              let sym = symbolInfo.Symbol
-            //                              select sym;
+            // ノード群からインタフェースに関する構文情報群を取得
+            var interfaceSyntaxArray = nodes.OfType<InterfaceDeclarationSyntax>();
+            foreach (var syntax in interfaceSyntaxArray)
+            {
+                var symbol = semanticModel.GetDeclaredSymbol(syntax);
+                result.Add($"{symbol.Name}");
+            }
+            // TODO:末尾がServiceではない場合は追加しない。
+            // TODO:インタフェースは先頭の"I"を取る。
+            // TODO:既にresultにあれば追加しない。
 
-            //        // 継承しているクラスなどを出力
-            //        Console.WriteLine(" 継承:");
-            //        foreach (var inheritance in inheritanceList)
-            //            Console.WriteLine($"  {inheritance.ToDisplayString()}");
-            //    }
-            //}
-            return "aaaa";
+            return result;
         }
         
 
@@ -126,10 +117,10 @@ namespace StudyRoslyn
                 switch (name)
                 {
                     case "ISampleService.cs":
-                        Console.WriteLine($"ソースからサービス名を取得:{name}\n{GetServiceName(filename)}\n");
+                        Console.WriteLine($"ソースからサービス名を取得:{name}\n{GetServiceNames(filename)}\n");
                         break;
                     case "SampleService.cs":
-                        Console.WriteLine($"ソースからサービス名を取得:{name}\n{GetServiceName(filename)}\n");
+                        Console.WriteLine($"ソースからサービス名を取得:{name}\n{GetServiceNames(filename)}\n");
                         break;
                     default:
                         break;
@@ -137,7 +128,7 @@ namespace StudyRoslyn
             }
 
             // それぞれのソースコードに対して構文木を生成する
-            SyntaxTree[] syntaxTrees = GetSyntaxTrees(filenames);
+            var syntaxTrees = GetSyntaxTrees(filenames);
             
             // ソース内のメソッドコメントを取得するテスト
             GetMethodComments(syntaxTrees);

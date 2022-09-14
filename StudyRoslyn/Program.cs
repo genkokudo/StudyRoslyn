@@ -15,6 +15,21 @@ namespace StudyRoslyn
 {
     public class Program
     {
+        // 解析用コンパイラで参照するdll
+        // ぶっちゃけよく分かってない。おまじない。
+        // 多分、コンパイルエラーが出たらtypeof(クラス名).Assembly.Locationみたいな感じでdll参照増やしていく感じだと思う。
+        static readonly PortableExecutableReference[] references = new[]{
+            // microlib.dll
+            // intは内部的にはSystem.Int32を利用している。
+            // メタリファレンスは何も指定しないとSystem.Int32等がインポートされていない。
+            // コンパイルエラーを回避するため、objectクラスが属するアセンブリをメタリファレンスに指定しておく。
+            MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+            // System.dll
+            MetadataReference.CreateFromFile(typeof(ObservableCollection<>).Assembly.Location),
+            // System.Core.dll
+            MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+        };
+        
         /// <summary>
         /// ソース内のメソッドコメントを取得する
         /// </summary>
@@ -48,15 +63,55 @@ namespace StudyRoslyn
                 }
             }
         }
-
+        
         /// <summary>
-        /// ソースコードからサービス名か、インタフェース名を取得
+        /// ソースコードのサービスまたはインタフェースから、サービス名を取得
         /// </summary>
-        /// <returns></returns>
+        /// <param name="path"></param>
+        /// <returns>サービス名</returns>
         public static string GetServiceName(string path)
         {
-            return "";
+            // 1ファイルごとに解析しているので、別ファイルに定義したものは拾えない事に注意
+            var syntaxTree = CSharpSyntaxTree.ParseText(File.ReadAllText(path));
+            var compilation = CSharpCompilation.Create("sample", new SyntaxTree[] { syntaxTree }, references);
+            var semanticModel = compilation.GetSemanticModel(syntaxTree);
+
+            // TODO:ここから、regexとか使ってサービスクラス名だけ拾ってリストにすること。
+            
+            //// ノード群からクラスに関する構文情報群を取得
+            //// クラスはClassDeclarationSyntax
+            //// インタフェースはInterfaceDeclarationSyntax
+            //Console.WriteLine($"--- クラスの解析をします ---");
+            //var nodes = syntaxTree.GetRoot().DescendantNodes();
+            //var classSyntaxArray = nodes.OfType<ClassDeclarationSyntax>();
+            //foreach (var syntax in classSyntaxArray)
+            //{
+            //    var symbol = semanticModel.GetDeclaredSymbol(syntax);
+            //    Console.WriteLine($"アクセス修飾子: {symbol.DeclaredAccessibility} {symbol}");
+            //    Console.WriteLine($" クラス名（フル）: {symbol}");                 // StudyRoslyn.Sample
+            //    Console.WriteLine($" クラス名: {symbol.Name}");                 // Sample
+            //    Console.WriteLine($" 名前空間: {symbol.ContainingSymbol}");
+            //    Console.WriteLine($" Abstractか: {symbol.IsAbstract}");
+            //    Console.WriteLine($" Staticか: {symbol.IsStatic}");
+
+            //    // 継承しているクラスやインタフェースがあるかどうか
+            //    if (syntax.BaseList != null)
+            //    {
+            //        // 継承しているクラスなどのシンボルを取得
+            //        var inheritanceList = from baseSyntax in syntax.BaseList.Types
+            //                              let symbolInfo = semanticModel.GetSymbolInfo(baseSyntax.Type)
+            //                              let sym = symbolInfo.Symbol
+            //                              select sym;
+
+            //        // 継承しているクラスなどを出力
+            //        Console.WriteLine(" 継承:");
+            //        foreach (var inheritance in inheritanceList)
+            //            Console.WriteLine($"  {inheritance.ToDisplayString()}");
+            //    }
+            //}
+            return "aaaa";
         }
+        
 
         static void Main(string[] args)
         {
@@ -71,10 +126,10 @@ namespace StudyRoslyn
                 switch (name)
                 {
                     case "ISampleService.cs":
-                        Console.WriteLine($"ソースからサービス名を取得:{name}\n{GetServiceName(name)}\n");
+                        Console.WriteLine($"ソースからサービス名を取得:{name}\n{GetServiceName(filename)}\n");
                         break;
                     case "SampleService.cs":
-                        Console.WriteLine($"ソースからサービス名を取得:{name}\n{GetServiceName(name)}\n");
+                        Console.WriteLine($"ソースからサービス名を取得:{name}\n{GetServiceName(filename)}\n");
                         break;
                     default:
                         break;
@@ -82,34 +137,13 @@ namespace StudyRoslyn
             }
 
             // それぞれのソースコードに対して構文木を生成する
-            var syntaxTrees = filenames.Select(
-                filename => CSharpSyntaxTree.ParseText(
-                File.ReadAllText(filename), // ソースコードをテキストとして読み込む
-                CSharpParseOptions.Default,
-                filename)
-            ).ToArray();
-
+            SyntaxTree[] syntaxTrees = GetSyntaxTrees(filenames);
+            
+            // ソース内のメソッドコメントを取得するテスト
             GetMethodComments(syntaxTrees);
 
-            // 解析用コンパイラで参照するdll
-            // ぶっちゃけよく分かってない。おまじない。
-            // 多分、コンパイルエラーが出たらtypeof(クラス名).Assembly.Locationみたいな感じでdll参照増やしていく感じだと思う。
-            var references = new[]{
-                // microlib.dll
-                // intは内部的にはSystem.Int32を利用している。
-                // メタリファレンスは何も指定しないとSystem.Int32等がインポートされていない。
-                // コンパイルエラーを回避するため、objectクラスが属するアセンブリをメタリファレンスに指定しておく。
-                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
-                // System.dll
-                MetadataReference.CreateFromFile(typeof(ObservableCollection<>).Assembly.Location),
-                // System.Core.dll
-                MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
-                // External library
-                // MetadataReference.CreateFromFile("library path"),
-            };
-
-            // それぞれの構文木と参照dllから解析用コンパイラを生成する
-            // 第1引数は適当でよい？
+            // 全ての構文木で組み立てて解析する
+            // 第1引数は適当でよい
             var compilation = CSharpCompilation.Create("sample", syntaxTrees, references);
 
             Console.WriteLine("--- 各ソースコードの構文木について解析します ---");
@@ -140,7 +174,7 @@ namespace StudyRoslyn
                     Console.WriteLine($" 名前空間: {symbol.ContainingSymbol}");
                     Console.WriteLine($" Abstractか: {symbol.IsAbstract}");
                     Console.WriteLine($" Staticか: {symbol.IsStatic}");
-                    
+
                     // 継承しているクラスやインタフェースがあるかどうか
                     if (syntax.BaseList != null)
                     {
@@ -195,12 +229,13 @@ namespace StudyRoslyn
 
                     // アクセサの取得
                     var accessors = syntax.AccessorList.Accessors.Select(
-                        accessor => new {
+                        accessor => new
+                        {
                             Name = accessor.Keyword.ToString(),
                             Access = accessor.Modifiers.Count > 0 ?
                             semanticModel.GetDeclaredSymbol(accessor).DeclaredAccessibility :
                             Accessibility.Public
-                    });
+                        });
 
                     // アクセサの出力
                     Console.WriteLine(" アクセサ:");
@@ -237,6 +272,24 @@ namespace StudyRoslyn
             Console.WriteLine(AssertMaker.MakeAssert(testSample, nameof(testSample)));
 
 
+        }
+
+        /// <summary>
+        /// それぞれのソースコードに対して構文木を生成する
+        /// 
+        /// .cs全てを使って解析するので、解析対象のソースは全部突っ込むこと。
+        /// </summary>
+        /// <param name="filenames">.csのファイル全て</param>
+        /// <returns></returns>
+        private static SyntaxTree[] GetSyntaxTrees(string[] filenames)
+        {
+            var syntaxTrees = filenames.Select(
+                filename => CSharpSyntaxTree.ParseText(
+                File.ReadAllText(filename), // ソースコードをテキストとして読み込む
+                CSharpParseOptions.Default,
+                filename)
+            ).ToArray();
+            return syntaxTrees;
         }
     }
 }

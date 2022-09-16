@@ -10,6 +10,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Xml.Linq;
 
 namespace StudyRoslyn
 {
@@ -71,7 +72,7 @@ namespace StudyRoslyn
         /// </summary>
         /// <param name="path"></param>
         /// <returns>検出したサービス名全て</returns>
-        public static List<string> GetServiceNames(string path)
+        public static IEnumerable<string> GetServiceNames(string path)
         {
             var result = new List<string>();
 
@@ -85,22 +86,27 @@ namespace StudyRoslyn
             var classSyntaxArray = nodes.OfType<ClassDeclarationSyntax>();
             foreach (var syntax in classSyntaxArray)
             {
-                var symbol = semanticModel.GetDeclaredSymbol(syntax);
-                result.Add($"{symbol.Name}");
+                var name = semanticModel.GetDeclaredSymbol(syntax).Name;
+                if (name.EndsWith("Service"))
+                {
+                    result.Add($"{name}");
+                }
             }
 
             // ノード群からインタフェースに関する構文情報群を取得
             var interfaceSyntaxArray = nodes.OfType<InterfaceDeclarationSyntax>();
             foreach (var syntax in interfaceSyntaxArray)
             {
-                var symbol = semanticModel.GetDeclaredSymbol(syntax);
-                result.Add($"{symbol.Name}");
+                var name = semanticModel.GetDeclaredSymbol(syntax).Name;
+                // "先頭のIは取る"
+                name = name.StartsWith("I") ? name[1..] : name;
+                if (name.EndsWith("Service"))
+                {
+                    result.Add($"{name}");
+                }
             }
-            // TODO:末尾がServiceではない場合は追加しない。
-            // TODO:インタフェースは先頭の"I"を取る。
-            // TODO:既にresultにあれば追加しない。
 
-            return result;
+            return result.Distinct();   // 重複は除外
         }
         
 
@@ -117,10 +123,10 @@ namespace StudyRoslyn
                 switch (name)
                 {
                     case "ISampleService.cs":
-                        Console.WriteLine($"ソースからサービス名を取得:{name}\n{GetServiceNames(filename)}\n");
+                        Console.WriteLine($"ソースからサービス名を取得:{name}\n{string.Join(",", GetServiceNames(filename))}\n");
                         break;
                     case "SampleService.cs":
-                        Console.WriteLine($"ソースからサービス名を取得:{name}\n{GetServiceNames(filename)}\n");
+                        Console.WriteLine($"ソースからサービス名を取得:{name}\n{string.Join(",", GetServiceNames(filename))}\n");
                         break;
                     default:
                         break;

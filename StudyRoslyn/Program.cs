@@ -10,6 +10,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
 namespace StudyRoslyn
@@ -108,7 +109,16 @@ namespace StudyRoslyn
 
             return result.Distinct();   // 重複は除外
         }
-        
+
+        private static string RemoveComments(string text)
+        {
+            // コメントを除外したソースにする。
+            // 文字列に"//"とか"/*"とか入ってるのは知らない…。
+
+            // 優先順は"*/", "//", "/*"のようだ。
+            var re = @"(@(?:""[^""]*"")+|""(?:[^""\n\\]+|\\.)*""|'(?:[^'\n\\]+|\\.)*')|//.*|/\*(?s:.*?)\*/";
+            return Regex.Replace(text, re, "$1");
+        }
 
         static void Main(string[] args)
         {
@@ -132,6 +142,10 @@ namespace StudyRoslyn
                         break;
                 }
             }
+
+            // コメントを除外してみる
+            Console.WriteLine("--- コメント除外テスト ---");
+            Console.WriteLine(RemoveComments(File.ReadAllText("./input/Sample.cs")));
 
             // それぞれのソースコードに対して構文木を生成する
             var syntaxTrees = GetSyntaxTrees(filenames);

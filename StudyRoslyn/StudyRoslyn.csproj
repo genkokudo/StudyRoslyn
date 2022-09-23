@@ -10,6 +10,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Update="input\IEmptyService.cs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Compile>
     <Compile Update="input\ISampleService.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>

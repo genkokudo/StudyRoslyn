@@ -5,6 +5,7 @@ using System.Text;
 
 namespace StudyRoslyn
 {
+    // TODO:Serviceにしましょう。
     // TODO:Dictionaryが未対応。必要になったら実装しましょう。
     public class AssertMaker
     {

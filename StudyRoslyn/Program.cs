@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using StudyRoslyn.input;
+using StudyRoslyn.Labo;
 using StudyRoslyn.Summary;
 using System;
 using System.Collections.Generic;
@@ -17,135 +18,52 @@ namespace StudyRoslyn
 {
     public class Program
     {
-        // 解析用コンパイラで参照するdll
-        // ぶっちゃけよく分かってない。おまじない。
-        // 多分、コンパイルエラーが出たらtypeof(クラス名).Assembly.Locationみたいな感じでdll参照増やしていく感じだと思う。
-        static readonly PortableExecutableReference[] references = new[]{
-            // microlib.dll
-            // intは内部的にはSystem.Int32を利用している。
-            // メタリファレンスは何も指定しないとSystem.Int32等がインポートされていない。
-            // コンパイルエラーを回避するため、objectクラスが属するアセンブリをメタリファレンスに指定しておく。
-            MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
-            // System.dll
-            MetadataReference.CreateFromFile(typeof(ObservableCollection<>).Assembly.Location),
-            // System.Core.dll
-            MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
-        };
-        
-        /// <summary>
-        /// ソース内のメソッドコメントを取得する
-        /// </summary>
-        /// <param name="syntaxTrees"></param>
-        static void GetMethodComments(SyntaxTree[] syntaxTrees)
+        // Roslynでコンストラクタやフィールドに何か追加したりできたらいいなあ
+        private static void Test()
         {
-            foreach (var syntaxTree in syntaxTrees)
-            {
-                // MethodDocumentCommentWalker.Visit()を呼び出せば、
-                // MethodDocumentCommentWalker.DocumentCommentsに収集した結果が格納される
-                var walker = new MethodDocumentCommentWalker(syntaxTree);
-                walker.Visit(syntaxTree.GetRoot());
+            // 対象のソースコードを読み込む
+            var source = File.ReadAllText("./input/IEmptyService.cs");
+            Console.WriteLine(source);
 
-                foreach (var docComment in walker.DocumentComments)
-                {
-                    MethodDeclarationSyntax method = docComment.Key;
-                    DocumentComment comment = docComment.Value;
+            // シンタックス ツリーに変換する
+            //var syntaxTree = SyntaxTree.ParseText(source);
+            var syntaxTree = CSharpSyntaxTree.ParseText(source);
+            var rootNode = syntaxTree.GetRoot();             // ルートのノードを取得
 
-                    // ここで取得したメソッドコメントを整形してファイルに出力したりする
-                    Console.WriteLine("#" + method.Identifier);
-                    Console.WriteLine("##Summary");
-                    Console.WriteLine(comment.Summary);
-                    Console.WriteLine("##parameters");
-                    foreach (var param in comment.Params)
-                    {
-                        Console.WriteLine(param.Name + "\t" + param.Comment);
-                    }
-                    Console.WriteLine("##returns");
-                    Console.WriteLine(comment.Returns);
-                    Console.WriteLine();
-                }
-            }
-        }
-        
-        /// <summary>
-        /// ソースコードのサービスまたはインタフェースから、サービス名を取得
-        /// 末尾にServiceが無いものは除外。
-        /// インタフェースの場合は先頭の"I"を除外する。
-        /// </summary>
-        /// <param name="path"></param>
-        /// <returns>検出したサービス名全て</returns>
-        public static IEnumerable<string> GetServiceNames(string path)
-        {
-            var result = new List<string>();
-
-            // 1ファイルごとに解析しているので、別ファイルに定義したものは拾えない事に注意
-            var syntaxTree = CSharpSyntaxTree.ParseText(File.ReadAllText(path));
-            var compilation = CSharpCompilation.Create("sample", new SyntaxTree[] { syntaxTree }, references);
-            var semanticModel = compilation.GetSemanticModel(syntaxTree);
-            var nodes = syntaxTree.GetRoot().DescendantNodes();
-
-            // ノード群からクラスに関する構文情報群を取得
-            var classSyntaxArray = nodes.OfType<ClassDeclarationSyntax>();
-            foreach (var syntax in classSyntaxArray)
-            {
-                var name = semanticModel.GetDeclaredSymbol(syntax).Name;
-                if (name.EndsWith("Service"))
-                {
-                    result.Add($"{name}");
-                }
-            }
-
-            // ノード群からインタフェースに関する構文情報群を取得
-            var interfaceSyntaxArray = nodes.OfType<InterfaceDeclarationSyntax>();
-            foreach (var syntax in interfaceSyntaxArray)
-            {
-                var name = semanticModel.GetDeclaredSymbol(syntax).Name;
-                // "先頭のIは取る"
-                name = name.StartsWith("I") ? name[1..] : name;
-                if (name.EndsWith("Service"))
-                {
-                    result.Add($"{name}");
-                }
-            }
-
-            return result.Distinct();   // 重複は除外
-        }
-
-        private static string RemoveComments(string text)
-        {
-            // コメントを除外したソースにする。
-            // 文字列に"//"とか"/*"とか入ってるのは知らない…。
-
-            // 優先順は"*/", "//", "/*"のようだ。
-            var re = @"(@(?:""[^""]*"")+|""(?:[^""\n\\]+|\\.)*""|'(?:[^'\n\\]+|\\.)*')|//.*|/\*(?s:.*?)\*/";
-            return Regex.Replace(text, re, "$1");
+            new Walker().Visit(rootNode);                      // 解析
         }
 
         static void Main(string[] args)
         {
+            Test();
+            return;
+
             // inputフォルダのファイルを全て読み込む
             string[] filenames = Directory.GetFiles("./input", "*.cs", SearchOption.AllDirectories);
 
-            // ソースコードからサービス名か、インタフェース名を取得してみる
-            foreach (var filename in filenames)
-            {
-                var name = Path.GetFileName(filename);
-                Console.WriteLine(name);
-                switch (name)
-                {
-                    case "ISampleService.cs":
-                        Console.WriteLine($"ソースからサービス名を取得:{name}\n{string.Join(",", GetServiceNames(filename))}\n");
-                        break;
-                    case "SampleService.cs":
-                        Console.WriteLine($"ソースからサービス名を取得:{name}\n{string.Join(",", GetServiceNames(filename))}\n");
-                        break;
-                    default:
-                        break;
-                }
-            }
+            #region ソースコードからサービス名か、インタフェース名を取得してみる
+            //foreach (var filename in filenames)
+            //{
+            //    var name = Path.GetFileName(filename);
+            //    Console.WriteLine(name);
+            //    switch (name)
+            //    {
+            //        case "ISampleService.cs":
+            //            Console.WriteLine($"ソースからサービス名を取得:{name}\n{string.Join(",", GetServiceNames(filename))}\n");
+            //            break;
+            //        case "SampleService.cs":
+            //            Console.WriteLine($"ソースからサービス名を取得:{name}\n{string.Join(",", GetServiceNames(filename))}\n");
+            //            break;
+            //        default:
+            //            break;
+            //    }
+            //}
+            #endregion
 
-            // コメントを除外してみる
+            #region コメントを除外してみる
             Console.WriteLine("--- コメント除外テスト ---");
             Console.WriteLine(RemoveComments(File.ReadAllText("./input/Sample.cs")));
+            #endregion
 
             // それぞれのソースコードに対して構文木を生成する
             var syntaxTrees = GetSyntaxTrees(filenames);
@@ -285,6 +203,7 @@ namespace StudyRoslyn
 
         }
 
+        #region 邪魔なのでどかす。
         /// <summary>
         /// それぞれのソースコードに対して構文木を生成する
         /// 
@@ -302,5 +221,108 @@ namespace StudyRoslyn
             ).ToArray();
             return syntaxTrees;
         }
+        // 解析用コンパイラで参照するdll
+        // ぶっちゃけよく分かってない。おまじない。
+        // 多分、コンパイルエラーが出たらtypeof(クラス名).Assembly.Locationみたいな感じでdll参照増やしていく感じだと思う。
+        static readonly PortableExecutableReference[] references = new[]{
+            // microlib.dll
+            // intは内部的にはSystem.Int32を利用している。
+            // メタリファレンスは何も指定しないとSystem.Int32等がインポートされていない。
+            // コンパイルエラーを回避するため、objectクラスが属するアセンブリをメタリファレンスに指定しておく。
+            MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+            // System.dll
+            MetadataReference.CreateFromFile(typeof(ObservableCollection<>).Assembly.Location),
+            // System.Core.dll
+            MetadataReference.CreateFromFile(typeof(Enumerable).Assembly.Location),
+        };
+
+        /// <summary>
+        /// ソース内のメソッドコメントを取得する
+        /// </summary>
+        /// <param name="syntaxTrees"></param>
+        static void GetMethodComments(SyntaxTree[] syntaxTrees)
+        {
+            foreach (var syntaxTree in syntaxTrees)
+            {
+                // MethodDocumentCommentWalker.Visit()を呼び出せば、
+                // MethodDocumentCommentWalker.DocumentCommentsに収集した結果が格納される
+                var walker = new MethodDocumentCommentWalker(syntaxTree);
+                walker.Visit(syntaxTree.GetRoot());
+
+                foreach (var docComment in walker.DocumentComments)
+                {
+                    MethodDeclarationSyntax method = docComment.Key;
+                    DocumentComment comment = docComment.Value;
+
+                    // ここで取得したメソッドコメントを整形してファイルに出力したりする
+                    Console.WriteLine("#" + method.Identifier);
+                    Console.WriteLine("##Summary");
+                    Console.WriteLine(comment.Summary);
+                    Console.WriteLine("##parameters");
+                    foreach (var param in comment.Params)
+                    {
+                        Console.WriteLine(param.Name + "\t" + param.Comment);
+                    }
+                    Console.WriteLine("##returns");
+                    Console.WriteLine(comment.Returns);
+                    Console.WriteLine();
+                }
+            }
+        }
+
+        /// <summary>
+        /// ソースコードのサービスまたはインタフェースから、サービス名を取得
+        /// 末尾にServiceが無いものは除外。
+        /// インタフェースの場合は先頭の"I"を除外する。
+        /// </summary>
+        /// <param name="path"></param>
+        /// <returns>検出したサービス名全て</returns>
+        public static IEnumerable<string> GetServiceNames(string path)
+        {
+            var result = new List<string>();
+
+            // 1ファイルごとに解析しているので、別ファイルに定義したものは拾えない事に注意
+            var syntaxTree = CSharpSyntaxTree.ParseText(File.ReadAllText(path));
+            var compilation = CSharpCompilation.Create("sample", new SyntaxTree[] { syntaxTree }, references);
+            var semanticModel = compilation.GetSemanticModel(syntaxTree);
+            var nodes = syntaxTree.GetRoot().DescendantNodes();
+
+            // ノード群からクラスに関する構文情報群を取得
+            var classSyntaxArray = nodes.OfType<ClassDeclarationSyntax>();
+            foreach (var syntax in classSyntaxArray)
+            {
+                var name = semanticModel.GetDeclaredSymbol(syntax).Name;
+                if (name.EndsWith("Service"))
+                {
+                    result.Add($"{name}");
+                }
+            }
+
+            // ノード群からインタフェースに関する構文情報群を取得
+            var interfaceSyntaxArray = nodes.OfType<InterfaceDeclarationSyntax>();
+            foreach (var syntax in interfaceSyntaxArray)
+            {
+                var name = semanticModel.GetDeclaredSymbol(syntax).Name;
+                // "先頭のIは取る"
+                name = name.StartsWith("I") ? name[1..] : name;
+                if (name.EndsWith("Service"))
+                {
+                    result.Add($"{name}");
+                }
+            }
+
+            return result.Distinct();   // 重複は除外
+        }
+
+        private static string RemoveComments(string text)
+        {
+            // コメントを除外したソースにする。
+            // 文字列に"//"とか"/*"とか入ってるのは知らない…。
+
+            // 優先順は"*/", "//", "/*"のようだ。
+            var re = @"(@(?:""[^""]*"")+|""(?:[^""\n\\]+|\\.)*""|'(?:[^'\n\\]+|\\.)*')|//.*|/\*(?s:.*?)\*/";
+            return Regex.Replace(text, re, "$1");
+        }
+        #endregion
     }
 }

@@ -18,43 +18,51 @@ namespace StudyRoslyn
 {
     public class Program
     {
-        // Roslynでコンストラクタやフィールドに何か追加したりできたらいいなあ
-        private static void Test()
+        // Ioc.Default.ConfigureServicesを行っているクラスを探す
+        // ConfigureServicesを探せばいいけど、パターンが複数ある
+        // ・IServiceCollectionを実装したコレクションが引数にあるメソッド
+        // ・IServiceCollectionを実装したクラスがnewされている処理があるメソッド(new ServiceCollectionがある処理)
+        private static void SearchConfigureServices()
         {
             // 対象のソースコードを読み込む
-            var source = File.ReadAllText("./input/ITestService.cs");
+            var source = File.ReadAllText("./input/DiSample.cs");
 
-            // シンタックス ツリーに変換する
+            // シンタックス ツリーに変換してルートのノードを取得する
             var syntaxTree = CSharpSyntaxTree.ParseText(source);
-            var rootNode = syntaxTree.GetRoot();             // ルートのノードを取得
+            var rootNode = syntaxTree.GetRoot();
 
             Console.WriteLine("-------------------------------- Node解析 --------------------------------");
-            new NodeWalker().Visit(rootNode);
+            //// DIを行なっているクラスとメソッドを見つける
+            var aaaa = new DiWalker().FindDiMethod(rootNode);
+            Console.WriteLine(aaaa);
+
+
+
+
+
+
             
-            Console.WriteLine("-------------------------------- Token解析 --------------------------------");
-            new TokenWalker().Visit(rootNode);
-
-            Console.WriteLine("-------------------------------- コード変更 --------------------------------");
-            Console.WriteLine("----- ReplaceNodeによるコード変更 -----");
-            // https://www.thinktecture.com/en/net/roslyn-source-generators-analyzers-code-fixes/
-            // 上のNodeの中から、TypeがClassDeclarationSyntaxの物を指定することでクラス定義を見つける。
-            var oldClass = rootNode.DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
-            var newKlass = oldClass.WithIdentifier(SyntaxFactory.ParseToken("Aaaa"));               // クラス名を変更
-            var rewriten = rootNode.ReplaceNode(oldClass, newKlass);
-            Console.WriteLine(rewriten.NormalizeWhitespace()); // 整形して表示
+            //Console.WriteLine("-------------------------------- コード変更 --------------------------------");
+            //Console.WriteLine("----- ReplaceNodeによるコード変更 -----");
+            //// https://www.thinktecture.com/en/net/roslyn-source-generators-analyzers-code-fixes/
+            //// 上のNodeの中から、TypeがClassDeclarationSyntaxの物を指定することでクラス定義を見つける。
+            //var oldClass = rootNode.DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+            //var newKlass = oldClass.WithIdentifier(SyntaxFactory.ParseToken("Aaaa"));               // クラス名を変更
+            //var rewriten = rootNode.ReplaceNode(oldClass, newKlass);
+            //Console.WriteLine(rewriten.NormalizeWhitespace()); // 整形して表示
 
 
-            Console.WriteLine("----- SyntaxRewriterによるコード変更 -----");
-            // http://blog.shos.info/archives/2013/12/csharp_roslynsyntaxrewriter.html
-            // これは、SyntaxRewriterを継承して作成したクラスにメソッドをオーバーライドすることで
-            // どのノードを変更するかを指定して、そのノードを変更する処理を記述する。
-            // そしてノードのルートに対してVisitメソッドを呼び出すことで、ソースの修正ができる。
+            //Console.WriteLine("----- SyntaxRewriterによるコード変更 -----");
+            //// http://blog.shos.info/archives/2013/12/csharp_roslynsyntaxrewriter.html
+            //// これは、SyntaxRewriterを継承して作成したクラスにメソッドをオーバーライドすることで
+            //// どのノードを変更するかを指定して、そのノードを変更する処理を記述する。
+            //// そしてノードのルートに対してVisitメソッドを呼び出すことで、ソースの修正ができる。
 
         }
 
         static void Main(string[] args)
         {
-            Test();
+            SearchConfigureServices();
             return;
 
             // inputフォルダのファイルを全て読み込む
@@ -341,6 +349,40 @@ namespace StudyRoslyn
             // 優先順は"*/", "//", "/*"のようだ。
             var re = @"(@(?:""[^""]*"")+|""(?:[^""\n\\]+|\\.)*""|'(?:[^'\n\\]+|\\.)*')|//.*|/\*(?s:.*?)\*/";
             return Regex.Replace(text, re, "$1");
+        }
+
+        // Roslynでコンストラクタやフィールドに何か追加したりできたらいいなあ
+        private static void ReWriteSample()
+        {
+            // 対象のソースコードを読み込む
+            var source = File.ReadAllText("./input/ITestService.cs");
+
+            // シンタックス ツリーに変換する
+            var syntaxTree = CSharpSyntaxTree.ParseText(source);
+            var rootNode = syntaxTree.GetRoot();             // ルートのノードを取得
+
+            Console.WriteLine("-------------------------------- Node解析 --------------------------------");
+            new NodeWalker().Visit(rootNode);
+
+            Console.WriteLine("-------------------------------- Token解析 --------------------------------");
+            new TokenWalker().Visit(rootNode);
+
+            Console.WriteLine("-------------------------------- コード変更 --------------------------------");
+            Console.WriteLine("----- ReplaceNodeによるコード変更 -----");
+            // https://www.thinktecture.com/en/net/roslyn-source-generators-analyzers-code-fixes/
+            // 上のNodeの中から、TypeがClassDeclarationSyntaxの物を指定することでクラス定義を見つける。
+            var oldClass = rootNode.DescendantNodes().OfType<ClassDeclarationSyntax>().Single();
+            var newKlass = oldClass.WithIdentifier(SyntaxFactory.ParseToken("Aaaa"));               // クラス名を変更
+            var rewriten = rootNode.ReplaceNode(oldClass, newKlass);
+            Console.WriteLine(rewriten.NormalizeWhitespace()); // 整形して表示
+
+
+            Console.WriteLine("----- SyntaxRewriterによるコード変更 -----");
+            // http://blog.shos.info/archives/2013/12/csharp_roslynsyntaxrewriter.html
+            // これは、SyntaxRewriterを継承して作成したクラスにメソッドをオーバーライドすることで
+            // どのノードを変更するかを指定して、そのノードを変更する処理を記述する。
+            // そしてノードのルートに対してVisitメソッドを呼び出すことで、ソースの修正ができる。
+
         }
         #endregion
     }

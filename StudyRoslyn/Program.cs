@@ -32,16 +32,17 @@ namespace StudyRoslyn
             var rootNode = syntaxTree.GetRoot();
 
             Console.WriteLine("-------------------------------- Node解析 --------------------------------");
-            //// DIを行なっているクラスとメソッドを見つける
-            var aaaa = new DiWalker().FindDiMethod(rootNode);
+            // DIを行なっているクラスとメソッドを見つける
+            var aaaa = new DiWalker().FindDiClass(rootNode);
             Console.WriteLine(aaaa);
 
+            //new NodeWalker().Visit(rootNode);
 
 
 
 
 
-            
+
             //Console.WriteLine("-------------------------------- コード変更 --------------------------------");
             //Console.WriteLine("----- ReplaceNodeによるコード変更 -----");
             //// https://www.thinktecture.com/en/net/roslyn-source-generators-analyzers-code-fixes/

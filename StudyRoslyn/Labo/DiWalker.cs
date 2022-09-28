@@ -10,6 +10,9 @@ using System.Text;
 
 namespace StudyRoslyn.Labo
 {
+    /// <summary>
+    /// DIを行っているクラスとメソッドを探すためのWalker
+    /// </summary>
     public class DiWalker : SyntaxWalker
     {
         /// <summary>
@@ -75,12 +78,16 @@ namespace StudyRoslyn.Labo
                         else if (parent is ConstructorDeclarationSyntax)
                         {
                             // コンストラクタの場合
-                            constructor(parent);
+                            var con = parent as ConstructorDeclarationSyntax;
+                            DiMethodName = DiClassName = con.Identifier.Text;
                         }
                         else if (parent is MethodDeclarationSyntax)
                         {
                             // メソッド定義の場合
-                            method(parent);
+                            var mtd = parent as MethodDeclarationSyntax;
+                            var cls = mtd.Parent as ClassDeclarationSyntax;
+                            DiClassName = cls.Identifier.Text;
+                            DiMethodName = mtd.Identifier.Text;
                         }
                     }
                 }
@@ -89,6 +96,13 @@ namespace StudyRoslyn.Labo
             base.Visit(node);
         }
 
+        /// <summary>
+        /// 引数にIServiceCollectionがあるかを確認する。
+        /// あればそのメソッドをDI登録メソッドとして記憶する。
+        /// </summary>
+        /// <param name="Parameters"></param>
+        /// <param name="classSyntax"></param>
+        /// <param name="IdentifierText"></param>
         private void FindServiceCollectionParameter(SeparatedSyntaxList<ParameterSyntax> Parameters, ClassDeclarationSyntax classSyntax, string IdentifierText)
         {
             foreach (var parameter in Parameters)
@@ -110,11 +124,11 @@ namespace StudyRoslyn.Labo
         /// なかったらnullを返す
         /// </summary>
         /// <param name="node"></param>
-        /// <returns>クラス名.メソッド名</returns>
-        public string FindDiMethod(SyntaxNode node)
+        /// <returns>クラス名, メソッド名</returns>
+        public (string, string) FindDiClass(SyntaxNode node)
         {
             Visit(node);
-            return $"{DiClassName}.{DiMethodName}";
+            return (DiClassName, DiMethodName);
         }
     }
 }

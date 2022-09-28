@@ -26,6 +26,7 @@ namespace StudyRoslyn.Labo
 
             if (_className == _methodName)
             {
+                // コンストラクタから探す
                 if (node.GetType().Name == nameof(ConstructorDeclarationSyntax))
                 {
                     Console.WriteLine($"[Node  - Type: {node.GetType().Name}, Kind: {node.RawKind}]\n{node}\n");
@@ -33,8 +34,23 @@ namespace StudyRoslyn.Labo
             }
             else
             {
-                if (node.GetType().Name == nameof(MethodDeclarationSyntax))
+                // TOSO:asはキャストできない時nullを返すので、isは不要
+                
+                // メソッドから探す
+                if (node is MethodDeclarationSyntax)
                 {
+                    var method = node as MethodDeclarationSyntax;
+                    if (method.Identifier.Text == _methodName)
+                    {
+                        if (node.Parent is ClassDeclarationSyntax)
+                        {
+                            var cls = node.Parent as ClassDeclarationSyntax;
+                            if (cls.Identifier.Text == _className)
+                            {
+                                Console.WriteLine("コレデス。");
+                            }
+                        }
+                    }
                     Console.WriteLine($"[Node  - Type: {node.GetType().Name}, Kind: {node.RawKind}]\n{node}\n");
                 }
             }

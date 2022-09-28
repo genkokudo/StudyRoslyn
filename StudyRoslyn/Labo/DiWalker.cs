@@ -27,6 +27,11 @@ namespace StudyRoslyn.Labo
         public string DiMethodName { get; set; } = null;
 
         /// <summary>
+        /// DI登録の形式
+        /// </summary>
+        public DiLibrary DiPattern { get; set; } = DiLibrary.HostedCommunityToolkit;
+
+        /// <summary>
         /// 各ノードを辿り、以下の要素を探してメソッド名とクラス名を記憶する
         /// ・ServiceCollectionまたはIServiceCollectionをパラメータに持つメソッド
         /// ・Ioc.Default.ConfigureServicesを呼んでいるメソッド
@@ -66,6 +71,7 @@ namespace StudyRoslyn.Labo
                     var member = node as MemberAccessExpressionSyntax;
                     if (node.ToString().Trim() == "Ioc.Default.ConfigureServices")
                     {
+                        DiPattern = DiLibrary.CommunityToolkit;
                         SyntaxNode parent = member.Parent;
                         while (!(parent is MethodDeclarationSyntax) && !(parent is ConstructorDeclarationSyntax) || parent is null)
                         {
@@ -130,5 +136,18 @@ namespace StudyRoslyn.Labo
             Visit(node);
             return (DiClassName, DiMethodName);
         }
+    }
+    public enum DiLibrary
+    {
+        /// <summary>
+        /// CommunityToolkit
+        /// Ioc.Default.ConfigureServicesを使ってDI登録するパターン
+        /// </summary>
+        CommunityToolkit = 1,
+        /// <summary>
+        /// IHost版
+        /// CommunityToolkit
+        /// </summary>
+        HostedCommunityToolkit = 2,
     }
 }

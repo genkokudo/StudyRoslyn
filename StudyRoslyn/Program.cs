@@ -18,6 +18,50 @@ namespace StudyRoslyn
 {
     public class Program
     {
+
+        /// <summary>
+        /// 現在の登録サービス一覧を取得する
+        /// </summary>
+        /// <param name="library"></param>
+        /// <returns></returns>
+        private static IEnumerable<string> GetRegisterdServiceList(DiLibrary library)
+        {
+            var result = new List<string>();
+            return result;  // TODO:Distinct
+        }
+
+
+        /// <summary>
+        /// 指定したサービスをDI登録する
+        /// </summary>
+        /// <param name="library"></param>
+        /// <param name="filePath"></param>
+        /// <param name="className"></param>
+        /// <param name="methodName"></param>
+        /// <param name="serviceName"></param>
+        /// <returns></returns>
+        private static void RegisterdService(DiLibrary library, string filePath, string className, string methodName, string serviceName)
+        {
+            // 対象のソースコードを読み込む
+            var source = File.ReadAllText(filePath);
+
+            // シンタックス ツリーに変換してルートのノードを取得する
+            var syntaxTree = CSharpSyntaxTree.ParseText(source);
+            var rootNode = syntaxTree.GetRoot();
+
+            // 対象のメソッドブロックを取得
+            var walker = new SearchWalker();
+            walker.SearchMethod(rootNode, className, methodName);
+            if (library == DiLibrary.CommunityToolkit)
+            {
+            }
+            else if (library == DiLibrary.HostedCommunityToolkit)
+            {
+
+            }
+        }
+
+
         // Ioc.Default.ConfigureServicesを行っているクラスを探す
         // ConfigureServicesを探せばいいけど、パターンが複数ある
         // ・IServiceCollectionを実装したコレクションが引数にあるメソッド
@@ -31,17 +75,28 @@ namespace StudyRoslyn
             var syntaxTree = CSharpSyntaxTree.ParseText(source);
             var rootNode = syntaxTree.GetRoot();
 
-            Console.WriteLine("-------------------------------- Node解析 --------------------------------");
+            Console.WriteLine("-------------------------------- DI探し --------------------------------");
             // DIを行なっているクラスとメソッドを見つける
-            var aaaa = new DiWalker().FindDiClass(rootNode);
+            var walker = new DiWalker();
+            var aaaa = walker.FindDiClass(rootNode);
             Console.WriteLine(aaaa);
 
-            //new NodeWalker().Visit(rootNode);
+            Console.WriteLine("-------------------------------- DI登録 --------------------------------");
+            // 見つけるのは出来たから、次は登録方法。
+            // パターンが2つあるのでどちらなのかを自動判別。
+            // 
+            // DiSampleをそれぞれのパターンで実験。
+            RegisterdService(walker.DiPattern, "./input/DiSample.cs", walker.DiClassName, walker.DiMethodName, "TesTesService");
 
-
-
-
-
+            Console.WriteLine("-------------------------------- 現在の登録サービス一覧 --------------------------------");
+            // 現在の登録サービス一覧を取得する
+            // DI登録はファイル・クラス・メソッドが分かっている状態。
+            Console.WriteLine(walker.DiPattern);
+            var serviceList = GetRegisterdServiceList(walker.DiPattern);
+            foreach (var service in serviceList)
+            {
+                Console.WriteLine(service);
+            }
 
             //Console.WriteLine("-------------------------------- コード変更 --------------------------------");
             //Console.WriteLine("----- ReplaceNodeによるコード変更 -----");

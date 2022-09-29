@@ -12,8 +12,16 @@ namespace StudyRoslyn.Labo
     /// </summary>
     public class SearchWalker : SyntaxWalker
     {
+        // 変更対象のクラス名
         private string _className;
+
+        // 変更対象のメソッド名
         private string _methodName;
+
+        /// <summary>
+        /// 変更対象のノード
+        /// </summary>
+        public SyntaxNode TargetNode { get; set; }
 
         /// <summary>
         /// 各ノードを辿る
@@ -21,38 +29,46 @@ namespace StudyRoslyn.Labo
         /// <param name="node"></param>
         public override void Visit(SyntaxNode node)
         {
+            // メソッドやコンストラクタのノードの時、親ノードがクラスなので
+            // そのクラス名が今回探す対象のものかをチェックする。
+            bool checkParentClass(SyntaxNode nd)
+            {
+                var cls = nd.Parent as ClassDeclarationSyntax;
+                return cls != null && cls.Identifier.Text == _className;
+            }
+
             if (string.IsNullOrWhiteSpace(_className) || string.IsNullOrWhiteSpace(_methodName) || node == null)
                 return;
 
             if (_className == _methodName)
             {
                 // コンストラクタから探す
-                if (node.GetType().Name == nameof(ConstructorDeclarationSyntax))
+                var constructor = node as ConstructorDeclarationSyntax;
+                if (constructor != null && constructor.Identifier.Text == _className)
                 {
-                    Console.WriteLine($"[Node  - Type: {node.GetType().Name}, Kind: {node.RawKind}]\n{node}\n");
+                    if (checkParentClass(node))
+                    {
+                        // 対象のノードを特定した
+                        //Console.WriteLine($"[Node  - Type: {node.GetType().Name}, Kind: {node.RawKind}]\n{node}\n");
+                        TargetNode = node;
+                    }
                 }
             }
             else
             {
-                // TOSO:asはキャストできない時nullを返すので、isは不要
-                
                 // メソッドから探す
-                if (node is MethodDeclarationSyntax)
+                var method = node as MethodDeclarationSyntax;
+                if (method != null && method.Identifier.Text == _methodName)
                 {
-                    var method = node as MethodDeclarationSyntax;
-                    if (method.Identifier.Text == _methodName)
+                    if (checkParentClass(node))
                     {
-                        if (node.Parent is ClassDeclarationSyntax)
-                        {
-                            var cls = node.Parent as ClassDeclarationSyntax;
-                            if (cls.Identifier.Text == _className)
-                            {
-                                Console.WriteLine("コレデス。");
-                            }
-                        }
+                        // 対象のノードを特定した
+                        //Console.WriteLine($"[Node  - Type: {node.GetType().Name}, Kind: {node.RawKind}]\n{node}\n");
+                        TargetNode = node;
                     }
-                    Console.WriteLine($"[Node  - Type: {node.GetType().Name}, Kind: {node.RawKind}]\n{node}\n");
                 }
+
+
             }
 
             base.Visit(node);
@@ -64,11 +80,13 @@ namespace StudyRoslyn.Labo
         /// <param name="node"></param>
         /// <param name="className"></param>
         /// <param name="methodName"></param>
-        public void SearchMethod(SyntaxNode node, string className, string methodName)
+        public SyntaxNode SearchMethod(SyntaxNode node, string className, string methodName)
         {
             _className = className;
             _methodName = methodName;
             Visit(node);
+
+            return TargetNode;
         }
     }
 

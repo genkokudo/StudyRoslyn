@@ -49,9 +49,12 @@ namespace StudyRoslyn
             var syntaxTree = CSharpSyntaxTree.ParseText(source);
             var rootNode = syntaxTree.GetRoot();
 
-            // 対象のメソッドブロックを取得
+            // 対象のメソッドのノードを特定して取得
             var walker = new SearchWalker();
-            walker.SearchMethod(rootNode, className, methodName);
+            var targetNode = walker.SearchMethod(rootNode, className, methodName);
+            if (targetNode == null) return;
+
+            // 書き換え後の記述をセット
             if (library == DiLibrary.CommunityToolkit)
             {
             }
@@ -59,6 +62,24 @@ namespace StudyRoslyn
             {
 
             }
+
+            // コンストラクタかメソッドかで分岐してしまう
+            if (targetNode.GetType().ToString() == nameof(MethodDeclarationSyntax))
+            {
+                var newMethod = targetNode as MethodDeclarationSyntax;
+                newMethod = newMethod.WithIdentifier(SyntaxFactory.Identifier("Ananan"));
+            }
+            else if (targetNode.GetType().ToString() == nameof(ConstructorDeclarationSyntax))
+            {
+
+            }
+
+            //Console.WriteLine("-------------------------------- 書き換える --------------------------------");
+            //Console.WriteLine(newMethod.NormalizeWhitespace());
+            //// 適用する
+            //Console.WriteLine("-------------------------------- 書き換え後 --------------------------------");
+            //var newTree = rootNode.ReplaceNode(targetNode, newMethod);
+            //Console.WriteLine(newTree.NormalizeWhitespace());
         }
 
 

@@ -2,6 +2,7 @@
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
+using Microsoft.CodeAnalysis.Formatting;
 using StudyRoslyn.input;
 using StudyRoslyn.Labo;
 using StudyRoslyn.Summary;
@@ -10,6 +11,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Reflection.Metadata;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
@@ -57,22 +59,57 @@ namespace StudyRoslyn
             // 書き換え後の記述をセット
             if (library == DiLibrary.CommunityToolkit)
             {
+                // コンストラクタかメソッドかで分岐してしまう
+                if (targetNode.GetType().Name == nameof(MethodDeclarationSyntax))
+                {
+                    Console.WriteLine();
+                }
+                else if (targetNode.GetType().Name == nameof(ConstructorDeclarationSyntax))
+                {
+                    // コンストラクタ版
+                    var newConstructor = targetNode as ConstructorDeclarationSyntax;
+                    // Ioc.Default.ConfigureServices(new ServiceCollection().AddTransient<ITestService, TestService>()
+                    var block = newConstructor.Body; // ここから ServiceCollection()を探す？
+                    foreach (var item in newConstructor.Body.Statements)
+                    {
+                        Console.WriteLine(item);
+                    }
+
+                }
             }
             else if (library == DiLibrary.HostedCommunityToolkit)
             {
+                // コンストラクタかメソッドかで分岐してしまう
+                if (targetNode.GetType().Name == nameof(MethodDeclarationSyntax))
+                {
+                    var newMethod = targetNode as MethodDeclarationSyntax;
 
+                    // メソッドからIServiceCollectionパラメータを探す
+                    var identifier = string.Empty;
+                    foreach (var item in newMethod.ParameterList.Parameters)
+                    {
+                        if (item.Type.GetText().ToString().Contains("ServiceCollection"))
+                        {
+                            identifier = item.Identifier.Text;  // "services"
+                        }
+                    }
+
+                    newMethod = newMethod.AddBodyStatements(SyntaxFactory.ParseStatement($"{identifier}.AddSingleton(IAaaaService, AaaaService);")
+                        .WithLeadingTrivia(newMethod.Body.OpenBraceToken.LeadingTrivia.Add(SyntaxFactory.Whitespace("    ")))   // インデントを前のメソッドから取ってきて付ける
+                        .WithTrailingTrivia(SyntaxFactory.CarriageReturnLineFeed)                                               // 改行を付ける
+                        );
+                    Console.WriteLine("-------------------------------- 書き換える --------------------------------");
+                    // NormalizeWhitespace()は空行が消されるからダメ
+                    // WithAdditionalAnnotations(Formatter.Annotation)は実行後にフォーマットしてくれるとかなんとか？？？？
+                    Console.WriteLine(newMethod.WithAdditionalAnnotations(Formatter.Annotation).ToFullString());
+                }
+                else if (targetNode.GetType().Name == nameof(ConstructorDeclarationSyntax))
+                {
+                    // コンストラクタ版
+                    Console.WriteLine();
+                }
             }
 
-            // コンストラクタかメソッドかで分岐してしまう
-            if (targetNode.GetType().ToString() == nameof(MethodDeclarationSyntax))
-            {
-                var newMethod = targetNode as MethodDeclarationSyntax;
-                newMethod = newMethod.WithIdentifier(SyntaxFactory.Identifier("Ananan"));
-            }
-            else if (targetNode.GetType().ToString() == nameof(ConstructorDeclarationSyntax))
-            {
-
-            }
 
             //Console.WriteLine("-------------------------------- 書き換える --------------------------------");
             //Console.WriteLine(newMethod.NormalizeWhitespace());

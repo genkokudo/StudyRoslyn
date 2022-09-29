@@ -12,22 +12,24 @@ namespace StudyRoslyn
     {
         public DiSample()
         {
-            //Ioc.Default.ConfigureServices(new ServiceCollection()
-            //    .AddTransient<ITestService, TestService>()
-            //    .AddTransient<ITestService, TestService>()
-            //    .BuildServiceProvider());
+            Console.WriteLine("余分な処理");
+            Ioc.Default.ConfigureServices(new ServiceCollection()
+                .AddTransient<ITestService, TestService>()
+                .AddTransient<ITestService, TestService>()
+                .BuildServiceProvider());
+            Console.WriteLine("邪魔な処理");
         }
 
-        private void ConfigureServices(IServiceCollection services)
-        {
-            // Services
-            services.AddSingleton<ITestService, TestService>();
+        //private void ConfigureServices(IServiceCollection services)
+        //{
+        //    // Services
+        //    services.AddSingleton<ITestService, TestService>();
 
-            // Views and ViewModels
-            services.AddTransient<TestService>();
-            services.AddTransient<ITestService, TestService>();
-            services.AddTransient<ITestService>();
-        }
+        //    // Views and ViewModels
+        //    services.AddTransient<TestService>();
+        //    services.AddTransient<ITestService, TestService>();
+        //    services.AddTransient<ITestService>();
+        //}
     }
 
     /// <summary>

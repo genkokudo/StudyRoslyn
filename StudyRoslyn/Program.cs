@@ -32,6 +32,8 @@ namespace StudyRoslyn
             return result;  // TODO:Distinct
         }
 
+        // DiLibrary.CommunityToolkit の場合について
+        // どんなパターンがあるか分からないので、取り敢えずnew ServiceCollection()を行ってる場合のみ対応させておく。
 
         /// <summary>
         /// 指定したサービスをDI登録する
@@ -66,15 +68,25 @@ namespace StudyRoslyn
                 }
                 else if (targetNode.GetType().Name == nameof(ConstructorDeclarationSyntax))
                 {
+                    // 取り敢えず
                     // コンストラクタ版
                     var newConstructor = targetNode as ConstructorDeclarationSyntax;
                     // Ioc.Default.ConfigureServices(new ServiceCollection().AddTransient<ITestService, TestService>()
-                    var block = newConstructor.Body; // ここから ServiceCollection()を探す？
-                    foreach (var item in newConstructor.Body.Statements)
-                    {
-                        Console.WriteLine(item);
-                    }
 
+                    // "ConfigureServices"を含む命令を取得
+                    var targetStatement = newConstructor.Body.Statements.FirstOrDefault(x => x.GetText().ToString().Contains("ConfigureServices"));
+                    if (targetStatement == null) return;
+
+                    // "new ServiceCollection()"を取得
+                    var targetSyntax = targetStatement.DescendantNodes().FirstOrDefault(x => x.GetType().Name == nameof(ObjectCreationExpressionSyntax));
+                    if (targetSyntax == null) return;
+
+                    var aaaa = targetSyntax as ObjectCreationExpressionSyntax;
+                    // わからん。でも、既にメソッドチェーンでいろいろ呼んでるのでその複製を追加してやれば良いのでは？
+                    //aaaa.ChildNodes().Append(SyntaxFactory.);
+
+
+                    Console.WriteLine(aaaa);
                 }
             }
             else if (library == DiLibrary.HostedCommunityToolkit)
@@ -117,6 +129,9 @@ namespace StudyRoslyn
             //Console.WriteLine("-------------------------------- 書き換え後 --------------------------------");
             //var newTree = rootNode.ReplaceNode(targetNode, newMethod);
             //Console.WriteLine(newTree.NormalizeWhitespace());
+
+            // コンストラクタ書き換えは多分これを参考に。
+            // http://mousouprogrammer.blogspot.com/2014/
         }
 
 

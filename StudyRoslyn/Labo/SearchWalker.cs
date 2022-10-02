@@ -49,7 +49,6 @@ namespace StudyRoslyn.Labo
                     if (checkParentClass(node))
                     {
                         // 対象のノードを特定した
-                        //Console.WriteLine($"[Node  - Type: {node.GetType().Name}, Kind: {node.RawKind}]\n{node}\n");
                         TargetNode = node;
                     }
                 }
@@ -63,7 +62,6 @@ namespace StudyRoslyn.Labo
                     if (checkParentClass(node))
                     {
                         // 対象のノードを特定した
-                        //Console.WriteLine($"[Node  - Type: {node.GetType().Name}, Kind: {node.RawKind}]\n{node}\n");
                         TargetNode = node;
                     }
                 }

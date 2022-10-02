@@ -3,6 +3,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Formatting;
+using Microsoft.Extensions.DependencyInjection;
 using StudyRoslyn.input;
 using StudyRoslyn.Labo;
 using StudyRoslyn.Summary;
@@ -68,6 +69,7 @@ namespace StudyRoslyn
                 }
                 else if (targetNode.GetType().Name == nameof(ConstructorDeclarationSyntax))
                 {
+
                     // 取り敢えず
                     // コンストラクタ版
                     var newConstructor = targetNode as ConstructorDeclarationSyntax;
@@ -77,16 +79,27 @@ namespace StudyRoslyn
                     var targetStatement = newConstructor.Body.Statements.FirstOrDefault(x => x.GetText().ToString().Contains("ConfigureServices"));
                     if (targetStatement == null) return;
 
+                    var expressionSyntax = targetStatement as ExpressionStatementSyntax;
+
+
                     // "new ServiceCollection()"を取得
-                    var targetSyntax = targetStatement.DescendantNodes().FirstOrDefault(x => x.GetType().Name == nameof(ObjectCreationExpressionSyntax));
-                    if (targetSyntax == null) return;
+                    var newSyntax = targetStatement.DescendantNodes().FirstOrDefault(x => x.GetType().Name == nameof(ObjectCreationExpressionSyntax));
+                    if (newSyntax == null) return;
+                    // ↑多分これは間違い。
+                    
+                    Console.WriteLine("---- before ----");
+                    Console.WriteLine(expressionSyntax);
 
-                    var aaaa = targetSyntax as ObjectCreationExpressionSyntax;
-                    // わからん。でも、既にメソッドチェーンでいろいろ呼んでるのでその複製を追加してやれば良いのでは？
-                    //aaaa.ChildNodes().Append(SyntaxFactory.);
+                    expressionSyntax = expressionSyntax.WithExpression(
+                        SyntaxFactory.ParseExpression(
+                            $"Ioc.Default.ConfigureServices(new ServiceCollection().AddTransient<{serviceName}, {serviceName}>())"
+                        )
+                    );
 
 
-                    Console.WriteLine(aaaa);
+                    Console.WriteLine("---- after ----");
+                    Console.WriteLine(expressionSyntax);
+
                 }
             }
             else if (library == DiLibrary.HostedCommunityToolkit)

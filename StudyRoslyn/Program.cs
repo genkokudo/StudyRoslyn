@@ -69,6 +69,9 @@ namespace StudyRoslyn
                 }
                 else if (targetNode.GetType().Name == nameof(ConstructorDeclarationSyntax))
                 {
+                    // ※ここ無理なので諦める。
+                    // メソッドチェーンをRoslynで作るのが無理。
+
                     Console.WriteLine("---- before ----");
                     Console.WriteLine(targetNode);
 
@@ -80,7 +83,10 @@ namespace StudyRoslyn
                     var targetStatement = newConstructor.Body.Statements.FirstOrDefault(x => x.GetText().ToString().Contains("ConfigureServices"));
                     if (targetStatement == null) return;
 
-                    // Ioc.Default.ConfigureServices(new ServiceCollection().AddTransient<ITestService, TestService>()
+                    // Ioc.Default.ConfigureServices(new ServiceCollection()
+                    //     .AddTransient<ITestService, TestService>()
+                    //     .AddSingleton<ITest2Service, Test2Service>()
+                    //     .AddSingleton<ITest3Service, Test3Service>();
                     var expressionStatement = targetStatement as ExpressionStatementSyntax;
 
                     // ----"new ServiceCollection()"を取得----
@@ -93,55 +99,16 @@ namespace StudyRoslyn
 
                     // そもそも、メソッドチェーンをRoslynで処理しようとするとどんどん階層が増えていってしまうので、向かないのかも？
                     // 末尾を取得して、そこに追加するというのがいいのかもしれない。
+                    // ↑それもダメ。噛んでるから。
 
-                    //// 一応、これでまるごと書き換え。
-                    //var newExpressionStatement = expressionStatement.WithExpression(
-                    //    SyntaxFactory.InvocationExpression(
-                    //        SyntaxFactory.MemberAccessExpression(
-                    //            SyntaxKind.SimpleMemberAccessExpression,
-                    //            SyntaxFactory.MemberAccessExpression(
-                    //                SyntaxKind.SimpleMemberAccessExpression,
-                    //                SyntaxFactory.IdentifierName("Ioc"),
-                    //                SyntaxFactory.IdentifierName("Default")),
-                    //            SyntaxFactory.IdentifierName("ConfigureServices")))
-                    //    .WithArgumentList(
-                    //        SyntaxFactory.ArgumentList(
-                    //            SyntaxFactory.SingletonSeparatedList(
-                    //                SyntaxFactory.Argument(
-                    //                    SyntaxFactory.InvocationExpression(
-                    //                        SyntaxFactory.MemberAccessExpression(
-                    //                            SyntaxKind.SimpleMemberAccessExpression,
-                    //                            SyntaxFactory.InvocationExpression(
-                    //                                SyntaxFactory.MemberAccessExpression(
-                    //                                    SyntaxKind.SimpleMemberAccessExpression,
-                    //                                    SyntaxFactory.InvocationExpression(
-                    //                                        SyntaxFactory.MemberAccessExpression(
-                    //                                            SyntaxKind.SimpleMemberAccessExpression,
-                    //                                            SyntaxFactory.ObjectCreationExpression(
-                    //                                                SyntaxFactory.IdentifierName("ServiceCollection"))
-                    //                                            .WithArgumentList(
-                    //                                                SyntaxFactory.ArgumentList()),
-                    //                                            SyntaxFactory.GenericName(
-                    //                                                SyntaxFactory.Identifier("AddTransient"))
-                    //                                            .WithTypeArgumentList(
-                    //                                                SyntaxFactory.TypeArgumentList(
-                    //                                                    SyntaxFactory.SeparatedList<TypeSyntax>(
-                    //                                                        new SyntaxNodeOrToken[]{
-                    //                                                            SyntaxFactory.IdentifierName("ITestService"),
-                    //                                                            SyntaxFactory.Token(SyntaxKind.CommaToken),
-                    //                                                            SyntaxFactory.IdentifierName("TestService")}))))),
-                    //                                    SyntaxFactory.GenericName(
-                    //                                        SyntaxFactory.Identifier("AddTransient"))
-                    //                                    .WithTypeArgumentList(
-                    //                                        SyntaxFactory.TypeArgumentList(
-                    //                                            SyntaxFactory.SeparatedList<TypeSyntax>(
-                    //                                                new SyntaxNodeOrToken[]{
-                    //                                                    SyntaxFactory.IdentifierName("ITestService"),
-                    //                                                    SyntaxFactory.Token(SyntaxKind.CommaToken),
-                    //                                                    SyntaxFactory.IdentifierName("TestService")}))))),
-                    //                            SyntaxFactory.IdentifierName("BuildServiceProvider")))))))
+                    // となると、一覧取得もこれと同じくらい無理っぽい。
+                    // 一覧取得さえできれば、無理矢理構文作ってくっつければ以下の方法で取り敢えずできそう。
+                    //var expressionSyntax = targetStatement as ExpressionStatementSyntax;
+                    //expressionSyntax = expressionSyntax.WithExpression(
+                    //    SyntaxFactory.ParseExpression(
+                    //        $"Ioc.Default.ConfigureServices(new ServiceCollection().AddTransient<{serviceName}, {serviceName}>())"
+                    //    )
                     //);
-                    //targetNode = targetNode.ReplaceNode(expressionStatement, newExpressionStatement);
 
                     Console.WriteLine("---- after ----");
                     Console.WriteLine(targetNode.NormalizeWhitespace());

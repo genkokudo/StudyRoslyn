@@ -380,7 +380,7 @@ namespace StudyRoslyn
 
             Console.WriteLine($"--- --- ★★★★各フィールドと値を取得する実験★★★★ --- ---");
             var testSample = new Sample();
-            Console.WriteLine(AssertMaker.MakeAssert(testSample, nameof(testSample)));
+            Console.WriteLine(new AssertService().MakeAssert(testSample, nameof(testSample)));
 
 
         }

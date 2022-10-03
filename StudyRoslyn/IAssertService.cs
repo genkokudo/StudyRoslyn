@@ -5,13 +5,16 @@ using System.Text;
 
 namespace StudyRoslyn
 {
-    // TODO:Serviceにしましょう。
     // TODO:Dictionaryが未対応。必要になったら実装しましょう。
-    public class AssertMaker
-    {
-        // Roslynではなく、Reflectionを使ってオブジェクトの中身を見る。
-        // Roslynはどっちかっつーとコードを見るので、オブジェクトの値を取ったりはしないのかな？
 
+    // 拡張機能で使うには？
+    // クラスや構造体のオブジェクトのインスタンスを生成するには、TypeクラスのCreateInstanceメソッドを使用します。
+
+    /// <summary>
+    /// オブジェクトを渡すと、そのクラス定義を読み取ってAssertを生成する
+    /// </summary>
+    public interface IAssertService
+    {
         /// <summary>
         /// オブジェクトに対して、Assertを作成する 
         /// 循環参照による無限ループを防止するため、同時に2回以上同じフィールド名を含むAssertを生成できない。
@@ -19,7 +22,15 @@ namespace StudyRoslyn
         /// <param name="obj"></param>
         /// <param name="name"></param>
         /// <returns></returns>
-        public static string MakeAssert(object obj, string name)
+        public string MakeAssert(object obj, string name);
+    }
+
+    public class AssertService : IAssertService
+    {
+        // Roslynではなく、Reflectionを使ってオブジェクトの中身を見る。
+        // Roslynはどっちかっつーとコードを見るので、オブジェクトの値を取ったりはしないのかな？
+
+        public string MakeAssert(object obj, string name)
         {
             var sb = new StringBuilder();
             Append(sb, obj, name);
@@ -187,7 +198,6 @@ namespace StudyRoslyn
             // 他に考えられる方法だと、同じ型が登場したら拒否するとかかなあ？DateTypeの中のDateTypeは対象外にするとか。
             //→それだと、多対多の構造でループすると思う。
         }
-
     }
 
     // xUnitで使う時は、テストクラスのコンストラクタでITestOutputHelperを作って出力させて使う感じ。

@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Reflection.Metadata;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -218,7 +219,6 @@ namespace StudyRoslyn
         static void Main(string[] args)
         {
             SearchConfigureServices();
-            return;
 
             // inputフォルダのファイルを全て読み込む
             string[] filenames = Directory.GetFiles("./input", "*.cs", SearchOption.AllDirectories);
@@ -377,10 +377,6 @@ namespace StudyRoslyn
                 }
                 Console.WriteLine($"--- --- {tree.FilePath}の解析終わり --- ---");
             }
-
-            Console.WriteLine($"--- --- ★★★★各フィールドと値を取得する実験★★★★ --- ---");
-            var testSample = new Sample();
-            Console.WriteLine(new AssertService().MakeAssert(testSample, nameof(testSample)));
 
 
         }

@@ -216,8 +216,62 @@ namespace StudyRoslyn
 
         }
 
+        /// <summary>
+        /// Roslynで取得したソースコードに対し
+        /// 正規表現によって
+        /// DIされているサービスの一覧を取得する
+        /// </summary>
+        static IEnumerable<string> GetServiceList(string source)
+        {
+            Console.WriteLine("---- サービス一覧 ----");
+
+            var list = new List<string>();
+
+            // 正規表現で変数をチェック
+
+            // "<"と">"に囲まれている文字列を検索
+            var terms = "<(.+)>";
+            // 条件に合った文字列を全部拾う
+            var r = new Regex(terms, RegexOptions.Multiline);
+            var mc = r.Matches(source);
+
+            foreach (var item in mc)
+            {
+                var services = item.ToString().Trim('<').Trim('>').Replace(" ", string.Empty).Split(',');
+                list.AddRange(services);
+            }
+
+            // 重複は除外する
+            // 末尾が"Service"ではないものは除外する
+            var result = list.Distinct();
+            result = result.Where(x => x.EndsWith("Service"));
+
+            // 先頭から"I"除いた文字列が他と重複した場合、それはインタフェースとして除外する
+            var removeList = new List<string>();
+            foreach (var item in result)
+            {
+                if (item.StartsWith("I"))
+                {
+                    var serviceName = item.Substring(1);
+                    if (result.Contains(serviceName))
+                    {
+                        removeList.Add(item);
+                    }
+                }
+            }
+            result = result.Where(x => !removeList.Contains(x));
+
+            return result;
+        }
+
         static void Main(string[] args)
         {
+            GetServiceList("Ioc.Default.ConfigureServices(new ServiceCollection()\r\n                .AddTransient<ITestService, TestService>()\r\n                .AddTransient<ITestService, TestService>()\r\n                .BuildServiceProvider());");
+            GetServiceList("        private void ConfigureServices(IServiceCollection services)\r\n        {\r\n            // Services\r\n            services.AddSingleton<ITestService, TestService>();\r\n\r\n            // Views and ViewModels\r\n            services.AddTransient<TestService>();\r\n            services.AddTransient<ITestService, TestService>();\r\n            services.AddTransient<ITestService>();\r\n        }");
+            return;
+
+
+            // Ioc.Default.ConfigureServicesを行っているクラスを探す
             SearchConfigureServices();
 
             // inputフォルダのファイルを全て読み込む

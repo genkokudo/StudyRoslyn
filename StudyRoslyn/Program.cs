@@ -292,7 +292,20 @@ namespace StudyRoslyn
 
             // TODO:フィールドを追加する
             var fields = classSyntax.Members.OfType<FieldDeclarationSyntax>();
-            
+
+            var field =
+                SyntaxFactory.FieldDeclaration(
+                    SyntaxFactory.VariableDeclaration(
+                        SyntaxFactory.PredefinedType(
+                            SyntaxFactory.Token(
+                                SyntaxKind.StringKeyword))))
+                .AddDeclarationVariables(SyntaxFactory.VariableDeclarator("_myAddedField"));
+
+            field = field.AddModifiers(SyntaxFactory.Token(SyntaxKind.PrivateKeyword)).AddModifiers(SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword));
+
+            classSyntax = classSyntax.AddMembers(field).NormalizeWhitespace();
+
+            // TODO:末尾に追加されてしまうので、classSyntax.WithMembersでなんとかできないか？
 
             // コンストラクタ更新
             var constructor = classSyntax.Members.OfType<ConstructorDeclarationSyntax>().FirstOrDefault();
@@ -322,7 +335,7 @@ namespace StudyRoslyn
             Console.WriteLine(classSyntax.NormalizeWhitespace());
 
 
-            return "";
+            return classSyntax.NormalizeWhitespace().ToFullString();
         }
 
         static void Main(string[] args)

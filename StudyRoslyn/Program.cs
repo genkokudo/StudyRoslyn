@@ -13,6 +13,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Reflection.Metadata;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -264,8 +265,76 @@ namespace StudyRoslyn
             return result;
         }
 
+        /// <summary>
+        /// クラスのソースコードに指定したサービスをDIしたソースコードを生成する。
+        /// サービス名の頭に"I"を追加したインタフェースとしてDIされる。
+        /// </summary>
+        /// <param name="source">クラスのソース</param>
+        /// <param name="serviceNames">DIするサービス名</param>
+        /// <returns>DI後のソースコード</returns>
+        static string AddInjection(string source, IEnumerable<string> serviceNames)
+        {
+            string ToCamelCase(string pascal)
+            {
+                pascal = pascal.Replace("Service", string.Empty);
+                return Char.ToLowerInvariant(pascal[0]) + pascal.Substring(1);
+            }
+
+            var syntaxTree = CSharpSyntaxTree.ParseText(source);
+            var compilation = CSharpCompilation.Create("sample", new SyntaxTree[] { syntaxTree }, references);
+            var semanticModel = compilation.GetSemanticModel(syntaxTree);
+            var nodes = syntaxTree.GetRoot();
+
+            // ノード群からクラスに関する構文情報を最初の1つだけ取得
+            var classSyntax = nodes.DescendantNodes().OfType<ClassDeclarationSyntax>().First();
+            Console.WriteLine("---- Before ----");
+            Console.WriteLine(classSyntax);
+
+            // TODO:フィールドを追加する
+            var fields = classSyntax.Members.OfType<FieldDeclarationSyntax>();
+            
+
+            // コンストラクタ更新
+            var constructor = classSyntax.Members.OfType<ConstructorDeclarationSyntax>().FirstOrDefault();
+            if (constructor != null)
+            {
+                // 初期処理を追加する
+                var newConstructor = constructor;
+                foreach (var name in serviceNames)
+                {
+                    var camel = ToCamelCase(name);
+                    newConstructor = newConstructor.AddBodyStatements(SyntaxFactory.ParseStatement($"_{camel} = {camel};"));
+                }
+                classSyntax = classSyntax.ReplaceNode(constructor, newConstructor);
+
+                // パラメータを追加する
+                constructor = classSyntax.Members.OfType<ConstructorDeclarationSyntax>().FirstOrDefault();      // ↑と同時にはできない。更新したらノードを取り直す。
+                SeparatedSyntaxList<ParameterSyntax> parametersList = new SeparatedSyntaxList<ParameterSyntax>().AddRange
+                (
+                    serviceNames.Select(x => SyntaxFactory
+                    .Parameter(SyntaxFactory.Identifier(ToCamelCase(x)))
+                    .WithType(SyntaxFactory.ParseTypeName($"I{x}"))).ToArray()
+                );
+                classSyntax = classSyntax.ReplaceNode(constructor.ParameterList, constructor.ParameterList.AddParameters(parametersList.ToArray()));
+            }
+
+            Console.WriteLine("---- After ----");
+            Console.WriteLine(classSyntax.NormalizeWhitespace());
+
+
+            return "";
+        }
+
         static void Main(string[] args)
         {
+            var serviceNames = new List<string> { "AaaaService", "BbbbService", "CcccService" };
+            var data = File.ReadAllText("./input/SampleService.cs");
+            Console.WriteLine(AddInjection(data, serviceNames));
+
+            var data2 = File.ReadAllText("./input/Sample2Service.cs");
+            Console.WriteLine(AddInjection(data2, serviceNames));
+            return;
+
             GetServiceList("Ioc.Default.ConfigureServices(new ServiceCollection()\r\n                .AddTransient<ITestService, TestService>()\r\n                .AddTransient<ITestService, TestService>()\r\n                .BuildServiceProvider());");
             GetServiceList("        private void ConfigureServices(IServiceCollection services)\r\n        {\r\n            // Services\r\n            services.AddSingleton<ITestService, TestService>();\r\n\r\n            // Views and ViewModels\r\n            services.AddTransient<TestService>();\r\n            services.AddTransient<ITestService, TestService>();\r\n            services.AddTransient<ITestService>();\r\n        }");
             return;

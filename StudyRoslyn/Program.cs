@@ -277,7 +277,7 @@ namespace StudyRoslyn
             string ToCamelCase(string pascal)
             {
                 pascal = pascal.Replace("Service", string.Empty);
-                return Char.ToLowerInvariant(pascal[0]) + pascal.Substring(1);
+                return char.ToLowerInvariant(pascal[0]) + pascal.Substring(1);
             }
 
             var syntaxTree = CSharpSyntaxTree.ParseText(source);
@@ -287,29 +287,60 @@ namespace StudyRoslyn
 
             // ノード群からクラスに関する構文情報を最初の1つだけ取得
             var classSyntax = nodes.DescendantNodes().OfType<ClassDeclarationSyntax>().First();
-            Console.WriteLine("---- Before ----");
-            Console.WriteLine(classSyntax);
 
-            // TODO:フィールドを追加する
-            var fields = classSyntax.Members.OfType<FieldDeclarationSyntax>();
+            // フィールドを追加する、先頭に追加したい
+            var addMembers = new List<MemberDeclarationSyntax>();
+            foreach (var name in serviceNames)
+            {
+                var camel = ToCamelCase(name);
+                var field =
+                    SyntaxFactory.FieldDeclaration(
+                        SyntaxFactory.VariableDeclaration(
+                            SyntaxFactory.IdentifierName($"I{name}")))
+                    .AddDeclarationVariables(SyntaxFactory.VariableDeclarator($"_{camel}"));
 
-            var field =
-                SyntaxFactory.FieldDeclaration(
-                    SyntaxFactory.VariableDeclaration(
-                        SyntaxFactory.PredefinedType(
-                            SyntaxFactory.Token(
-                                SyntaxKind.StringKeyword))))
-                .AddDeclarationVariables(SyntaxFactory.VariableDeclarator("_myAddedField"));
+                field = field
+                    .AddModifiers(SyntaxFactory.Token(SyntaxKind.PrivateKeyword))
+                    .AddModifiers(SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword));
 
-            field = field.AddModifiers(SyntaxFactory.Token(SyntaxKind.PrivateKeyword)).AddModifiers(SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword));
-
-            classSyntax = classSyntax.AddMembers(field).NormalizeWhitespace();
-
-            // TODO:末尾に追加されてしまうので、classSyntax.WithMembersでなんとかできないか？
+                addMembers.Add(field);
+            }
+            var currentMembers = classSyntax.Members;
+            currentMembers = currentMembers.InsertRange(0, addMembers);
+            classSyntax = classSyntax.WithMembers(currentMembers);
 
             // コンストラクタ更新
             var constructor = classSyntax.Members.OfType<ConstructorDeclarationSyntax>().FirstOrDefault();
-            if (constructor != null)
+            if (constructor == null)
+            {
+                // ない場合は新しく作る
+                var parameterList = serviceNames.Select(x => SyntaxFactory.Parameter(
+                    SyntaxFactory.Identifier(ToCamelCase(x)))
+                    .WithType(SyntaxFactory.IdentifierName($"I{x}")))
+                    .ToArray();
+
+                var statements = serviceNames.Select(x => SyntaxFactory.ExpressionStatement(
+                    SyntaxFactory.AssignmentExpression(
+                        SyntaxKind.SimpleAssignmentExpression,
+                        SyntaxFactory.IdentifierName($"_{ToCamelCase(x)}"),
+                        SyntaxFactory.IdentifierName(ToCamelCase(x))))
+                ).ToArray();
+
+                classSyntax = classSyntax.AddMembers(
+                    SyntaxFactory.SingletonList<MemberDeclarationSyntax>(
+                    SyntaxFactory.ConstructorDeclaration(
+                        SyntaxFactory.Identifier(classSyntax.Identifier.Text))
+                    .WithModifiers(
+                        SyntaxFactory.TokenList(
+                            SyntaxFactory.Token(SyntaxKind.PublicKeyword)))
+                    .WithParameterList(
+                        SyntaxFactory.ParameterList(
+                            SyntaxFactory.SeparatedList(parameterList)))
+                    .WithBody(
+                        SyntaxFactory.Block(
+                            statements))).ToArray());
+            }
+            else
             {
                 // 初期処理を追加する
                 var newConstructor = constructor;
@@ -321,7 +352,7 @@ namespace StudyRoslyn
                 classSyntax = classSyntax.ReplaceNode(constructor, newConstructor);
 
                 // パラメータを追加する
-                constructor = classSyntax.Members.OfType<ConstructorDeclarationSyntax>().FirstOrDefault();      // ↑と同時にはできない。更新したらノードを取り直す。
+                constructor = classSyntax.Members.OfType<ConstructorDeclarationSyntax>().FirstOrDefault();
                 SeparatedSyntaxList<ParameterSyntax> parametersList = new SeparatedSyntaxList<ParameterSyntax>().AddRange
                 (
                     serviceNames.Select(x => SyntaxFactory
@@ -330,10 +361,6 @@ namespace StudyRoslyn
                 );
                 classSyntax = classSyntax.ReplaceNode(constructor.ParameterList, constructor.ParameterList.AddParameters(parametersList.ToArray()));
             }
-
-            Console.WriteLine("---- After ----");
-            Console.WriteLine(classSyntax.NormalizeWhitespace());
-
 
             return classSyntax.NormalizeWhitespace().ToFullString();
         }
